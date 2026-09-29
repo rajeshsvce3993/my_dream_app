@@ -1,0 +1,1368 @@
+{
+  "brand": {
+    "name": "FreshMart",
+    "tagline": "Better Choices. Healthier You."
+  },
+  "configurations": [
+    {
+      "key": "brand.name",
+      "value": "FreshMart",
+      "category": "ui",
+      "isPublic": true
+    },
+    {
+      "key": "brand.tagline",
+      "value": "Better Choices. Healthier You.",
+      "category": "ui",
+      "isPublic": true
+    },
+    {
+      "key": "currency.code",
+      "value": "INR",
+      "category": "commerce",
+      "isPublic": true
+    },
+    {
+      "key": "currency.symbol",
+      "value": "₹",
+      "category": "commerce",
+      "isPublic": true
+    },
+    {
+      "key": "tax.defaultRate",
+      "value": 0,
+      "category": "commerce",
+      "isPublic": true
+    },
+    {
+      "key": "delivery.serviceAreas",
+      "value": [
+        {
+          "id": "chennai-core",
+          "name": "Chennai — core",
+          "latitude": 13.0827,
+          "longitude": 80.2707,
+          "radiusKm": 30,
+          "active": true
+        },
+        {
+          "id": "bengaluru-hsr",
+          "name": "Bengaluru — HSR / Bellandur",
+          "latitude": 12.9116,
+          "longitude": 77.6389,
+          "radiusKm": 12,
+          "active": true
+        },
+        {
+          "id": "tiruvallur-home",
+          "name": "Tiruvallur & West Chennai",
+          "latitude": 13.1425869,
+          "longitude": 79.9186027,
+          "radiusKm": 25,
+          "active": true
+        }
+      ],
+      "category": "delivery",
+      "isPublic": false,
+      "description": "Allowed customer delivery zones. Empty array = no platform restriction. Each zone: center lat/lng + radiusKm."
+    },
+    {
+      "key": "delivery.defaultFee",
+      "value": 0,
+      "category": "delivery",
+      "isPublic": true
+    },
+    {
+      "key": "delivery.freeThreshold",
+      "value": 499,
+      "category": "delivery",
+      "isPublic": true
+    },
+    {
+      "key": "delivery.partnerName",
+      "value": "Delhivery",
+      "category": "delivery",
+      "isPublic": true
+    },
+    {
+      "key": "checkout.deliveryOptions",
+      "value": [
+        {
+          "id": "instant",
+          "label": {
+            "en": "Instant (10 min)",
+            "ta": "உடனடி (10 நிமிடம்)"
+          },
+          "fee": 0
+        },
+        {
+          "id": "standard",
+          "label": {
+            "en": "Standard (30–40 min)",
+            "ta": "நிலையான (30–40 நிமிடம்)"
+          },
+          "fee": 0
+        },
+        {
+          "id": "scheduled",
+          "label": {
+            "en": "Scheduled",
+            "ta": "திட்டமிட்ட நேரம்"
+          },
+          "fee": 0
+        }
+      ],
+      "category": "delivery",
+      "isPublic": true
+    },
+    {
+      "key": "order.minValue",
+      "value": 100,
+      "category": "commerce",
+      "isPublic": true
+    },
+    {
+      "key": "vendor.search.maxRadiusKm",
+      "value": 25,
+      "category": "vendor",
+      "isPublic": true
+    },
+    {
+      "key": "vendor.ranking.weights",
+      "value": {
+        "priceWeight": 0.4,
+        "distanceWeight": 0.3,
+        "ratingWeight": 0.2,
+        "availabilityWeight": 0.1
+      },
+      "category": "vendor",
+      "isPublic": false
+    },
+    {
+      "key": "otp.settings",
+      "value": {
+        "provider": "mock",
+        "otpLength": 4,
+        "expirySeconds": 300,
+        "maxAttempts": 5,
+        "resendCooldownSeconds": 30,
+        "testOtp": "1234",
+        "msg91": {
+          "authKey": "",
+          "templateId": "",
+          "senderId": ""
+        }
+      },
+      "category": "auth",
+      "isPublic": false,
+      "description": "Customer OTP login: provider (msg91|mock), MSG91 credentials, and timing limits. Admin-only; never public."
+    },
+    {
+      "key": "supported.languages",
+      "value": [
+        "en",
+        "ta"
+      ],
+      "category": "localization",
+      "isPublic": true
+    },
+    {
+      "key": "home.deliveryPromise",
+      "value": {
+        "en": "Delivery in 10–20 min",
+        "ta": "10–20 நிமிடத்தில் விநியோகம்"
+      },
+      "category": "ui",
+      "isPublic": true
+    },
+    {
+      "key": "home.greetingTemplate",
+      "value": {
+        "en": "What do you need today?",
+        "ta": "இன்று என்ன வேண்டும்?"
+      },
+      "category": "ui",
+      "isPublic": true
+    },
+    {
+      "key": "home.hero",
+      "value": {
+        "title": {
+          "en": "Fresh Products Better Prices",
+          "ta": "புதிய பொருட்கள் — சிறந்த விலை"
+        },
+        "subtitle": {
+          "en": "Compare local vendors. One cart. Fast delivery.",
+          "ta": "உங்கள் அர 근 கடைகளை ஒப்பிடுங்கள். ஒரே cart. விரைவு விநியோகம்."
+        },
+        "ctaLabel": {
+          "en": "Order Now",
+          "ta": "இப்போது ஆர்டர்"
+        },
+        "ctaPath": "/products"
+      },
+      "category": "ui",
+      "isPublic": true
+    },
+    {
+      "key": "home.sections",
+      "description": "Home feed order and content. Top Deals: product_row section (title + config.skus or config.categorySlug). Categories on home: category_shortcuts. Optional defaultSubcategorySlugByParent maps parent slug to subcategory slug for product listing deep links.",
+      "category": "ui",
+      "isPublic": true,
+      "value": [
+        {
+          "id": "promos",
+          "type": "promo_strip",
+          "enabled": true
+        },
+        {
+          "id": "categories",
+          "type": "category_shortcuts",
+          "enabled": true,
+          "config": {
+            "limit": 4,
+            "slugs": [
+              "groceries",
+              "dairy",
+              "bakery",
+              "gifts"
+            ],
+            "productLimit": 10,
+            "subcategoryLimit": 20,
+            "defaultSubcategorySlugByParent": {
+              "groceries": "groceries-rice-pulses",
+              "dairy": "dairy-milk",
+              "bakery": "bakery-bread",
+              "gifts": "gifts-hampers"
+            }
+          }
+        },
+        {
+          "id": "essentials",
+          "type": "product_row",
+          "enabled": true,
+          "title": {
+            "en": "Top Deals",
+            "ta": "சிறந்த சலுகைகள்"
+          },
+          "config": {
+            "limit": 6,
+            "layout": "grid",
+            "viewAllCategorySlug": "groceries",
+            "viewAllLabel": {
+              "en": "View all",
+              "ta": "அனைத்தும்"
+            },
+            "skus": [
+              "BANANA-DOZ",
+              "MILK-TONED-500",
+              "MILK-1L",
+              "BREAD-WW-400",
+              "EGGS-FARM-6",
+              "TOMATO-1KG"
+            ]
+          }
+        },
+        {
+          "id": "farm",
+          "type": "product_row",
+          "enabled": false,
+          "title": {
+            "en": "Fresh From the Farm",
+            "ta": "பண்ணையிலிருந்து புதியது"
+          },
+          "config": {
+            "limit": 4,
+            "layout": "grid",
+            "categorySlug": "fruits-vegetables"
+          }
+        },
+        {
+          "id": "hero",
+          "type": "hero_banner",
+          "enabled": false,
+          "title": {
+            "en": "Featured",
+            "ta": "சிறப்பு"
+          }
+        },
+        {
+          "id": "vendors",
+          "type": "vendor_row",
+          "enabled": false,
+          "title": {
+            "en": "Stores delivering to you",
+            "ta": "உங்களுக்கு விநியோகிக்கும் கடைகள்"
+          }
+        },
+        {
+          "id": "value",
+          "type": "value_props",
+          "enabled": false,
+          "title": {
+            "en": "Why FreshMart",
+            "ta": "ஏன் FreshMart"
+          }
+        }
+      ]
+    },
+    {
+      "key": "home.valueProps",
+      "value": [
+        {
+          "en": "Compare vendors for the best price",
+          "ta": "சிறந்த விலைக்கு விற்பனையாளர்களை ஒப்பிடுங்கள்"
+        },
+        {
+          "en": "Hyperlocal delivery from nearby stores",
+          "ta": "அர 근 கடைகளிலிருந்து விரைவு விநியோகம்"
+        },
+        {
+          "en": "One checkout, multiple vendors",
+          "ta": "ஒரே checkout — பல விற்பனையாளர்கள்"
+        }
+      ],
+      "category": "ui",
+      "isPublic": true
+    },
+    {
+      "key": "home.promos",
+      "value": [
+        {
+          "label": {
+            "en": "Fresh Fruits & Vegetables",
+            "ta": "புதிய பழங்கள் & காய்கறிகள்"
+          },
+          "subtitle": {
+            "en": "From local shops near you",
+            "ta": "உங்கள் அர 근 கடைகளிலிருந்து"
+          },
+          "ctaLabel": {
+            "en": "Order Now",
+            "ta": "இப்போது ஆர்டர்"
+          },
+          "ctaPath": "/category/fruits-vegetables",
+          "imageUrl": "https://images.unsplash.com/photo-1610832958506-aa56368178cf?w=480&h=480&fit=crop"
+        },
+        {
+          "label": {
+            "en": "Farm-Fresh Dairy",
+            "ta": "பண்ணை புதிய பால் பொருட்கள்"
+          },
+          "subtitle": {
+            "en": "Milk, curd & more from nearby stores",
+            "ta": "அர 근 கடைகளிலிருந்து பால், தயிர் முதலியன"
+          },
+          "ctaLabel": {
+            "en": "Order Now",
+            "ta": "இப்போது ஆர்டர்"
+          },
+          "ctaPath": "/category/dairy",
+          "imageUrl": "https://images.unsplash.com/photo-1628087224152-2470469d4a10?w=480&h=480&fit=crop"
+        },
+        {
+          "label": {
+            "en": "Bakery Favourites",
+            "ta": "பேக்கரி சிறப்புகள்"
+          },
+          "subtitle": {
+            "en": "Bread & buns baked fresh daily",
+            "ta": "தினமும் புதிய ரொட்டி & பன்ஸ்"
+          },
+          "ctaLabel": {
+            "en": "Order Now",
+            "ta": "இப்போது ஆர்டர்"
+          },
+          "ctaPath": "/category/bakery",
+          "imageUrl": "https://images.unsplash.com/photo-1509440159596-0249088772ff?w=480&h=480&fit=crop"
+        }
+      ],
+      "category": "ui",
+      "isPublic": true
+    },
+    {
+      "key": "search.popularQueries",
+      "value": [
+        "milk",
+        "paneer",
+        "bread",
+        "eggs",
+        "tomato",
+        "rice",
+        "பால்",
+        "அரிசி"
+      ],
+      "category": "ui",
+      "isPublic": true
+    },
+    {
+      "key": "mobile.search.placeholder",
+      "value": {
+        "en": "Search products, brands…",
+        "ta": "பொருட்கள், பிராண்டுகள் தேடுங்கள்"
+      },
+      "category": "mobile",
+      "description": "Legacy public config key; mobile uses fixed global search placeholder in code",
+      "isPublic": true
+    },
+    {
+      "key": "mobile.home.greetingSubtextGuest",
+      "value": {
+        "en": "Sign in for faster checkout and order tracking",
+        "ta": "விரைவு செக்கவுட்டுக்கு உள்நுழையுங்கள்"
+      },
+      "category": "mobile",
+      "description": "Subtext under Welcome on home when guest",
+      "isPublic": true
+    },
+    {
+      "key": "mobile.home.greetingSubtextSignedIn",
+      "value": {
+        "en": "What do you need today?",
+        "ta": "இன்று என்ன வேண்டும்?"
+      },
+      "category": "mobile",
+      "description": "Subtext under Welcome on home when signed in",
+      "isPublic": true
+    },
+    {
+      "key": "mobile.location.default",
+      "value": {
+        "label": "Tiruvallur, Home",
+        "city": "Tiruvallur",
+        "line1": "Near Tiruvallur Railway Station",
+        "lng": 79.9186027,
+        "lat": 13.1425869,
+        "country": "IN",
+        "phone": "+91 98765 43210"
+      },
+      "category": "mobile",
+      "description": "Default delivery address shown in app header, cart, checkout",
+      "isPublic": true
+    },
+    {
+      "key": "mobile.categoryIcons",
+      "value": {
+        "groceries": "cart-outline",
+        "dairy": "water-outline",
+        "bakery": "cafe-outline",
+        "gifts": "gift-outline"
+      },
+      "category": "mobile",
+      "isPublic": true
+    },
+    {
+      "key": "mobile.categoryLabels",
+      "value": {
+        "groceries": "Groceries",
+        "dairy": "Dairy",
+        "bakery": "Bakery",
+        "gifts": "Gifts"
+      },
+      "category": "mobile",
+      "description": "Short labels under category icons on home",
+      "isPublic": true
+    },
+    {
+      "key": "mobile.checkout.deliverySlots",
+      "value": [
+        {
+          "id": "instant",
+          "icon": "flash",
+          "title": {
+            "en": "Instant"
+          },
+          "subtitle": {
+            "en": "10 MINS"
+          }
+        },
+        {
+          "id": "standard",
+          "icon": "time-outline",
+          "title": {
+            "en": "Standard"
+          },
+          "subtitle": {
+            "en": "30-40 MINS"
+          }
+        },
+        {
+          "id": "scheduled",
+          "icon": "calendar-outline",
+          "title": {
+            "en": "Schedule"
+          },
+          "subtitle": {
+            "en": "CHOOSE TIME"
+          }
+        }
+      ],
+      "category": "mobile",
+      "isPublic": true
+    },
+    {
+      "key": "mobile.login",
+      "value": {
+        "headline": {
+          "en": "Groceries in 10–20 mins",
+          "ta": "10–20 நிமிடத்தில் மளிகை"
+        },
+        "subtitle": {
+          "en": "Freshness at your doorstep",
+          "ta": "உங்கள் வீட்டு வாசலில் புதுமை"
+        },
+        "heroImageUrl": "https://images.unsplash.com/photo-1601597111159-2ccdbe6462a9?w=800"
+      },
+      "category": "mobile",
+      "isPublic": true
+    },
+    {
+      "key": "mobile.profile",
+      "value": {
+        "displayName": {
+          "en": "FreshMart Customer",
+          "ta": "FreshMart வாடிக்கையாளர்"
+        },
+        "appVersion": "FreshMart Quick Commerce v2.4.1"
+      },
+      "category": "mobile",
+      "isPublic": true
+    },
+    {
+      "key": "mobile.store.categorySubtitle",
+      "value": {
+        "en": "Fresh from the farm to your doorstep",
+        "ta": "பண்ணையிலிருந்து உங்கள் வீடு வரை"
+      },
+      "category": "mobile",
+      "isPublic": true
+    }
+  ],
+  "admin": {
+    "email": "admin@freshmart.local",
+    "password": "Admin@12345",
+    "firstName": "FreshMart",
+    "lastName": "Admin"
+  },
+  "categories": [
+    {
+      "slug": "dairy",
+      "name": {
+        "en": "Dairy",
+        "ta": "பால் பொருட்கள்"
+      },
+      "sortOrder": 1,
+      "isFeatured": true
+    },
+    {
+      "slug": "bakery",
+      "name": {
+        "en": "Bakery",
+        "ta": "பேக்கரி"
+      },
+      "sortOrder": 2,
+      "isFeatured": true
+    },
+    {
+      "slug": "fruits-vegetables",
+      "name": {
+        "en": "Fruits & Vegetables",
+        "ta": "பழங்கள் & காய்கறிகள்"
+      },
+      "sortOrder": 3,
+      "isFeatured": true
+    },
+    {
+      "slug": "groceries",
+      "name": {
+        "en": "Groceries",
+        "ta": "மளிகை"
+      },
+      "sortOrder": 4,
+      "isFeatured": true
+    },
+    {
+      "slug": "snacks",
+      "name": {
+        "en": "Snacks",
+        "ta": "Snack items"
+      },
+      "sortOrder": 5,
+      "isFeatured": false
+    },
+    {
+      "slug": "beverages",
+      "name": {
+        "en": "Beverages",
+        "ta": "பானங்கள்"
+      },
+      "sortOrder": 6,
+      "isFeatured": false
+    }
+  ],
+  "vendors": [
+    {
+      "code": "FRESH-FARM",
+      "name": "Chennai Fresh Mart",
+      "rating": 4.7,
+      "ratingCount": 320,
+      "commissionRate": 8,
+      "serviceAreaWideDelivery": true,
+      "lng": 80.2707,
+      "lat": 13.0827,
+      "address": {
+        "city": "Chennai",
+        "state": "TN",
+        "country": "IN"
+      }
+    },
+    {
+      "code": "QUALITY-GROCERS",
+      "name": "Chennai Super Store",
+      "rating": 4.5,
+      "ratingCount": 210,
+      "commissionRate": 7,
+      "serviceAreaWideDelivery": true,
+      "lng": 80.2807,
+      "lat": 13.0727,
+      "address": {
+        "city": "Chennai",
+        "state": "TN",
+        "country": "IN"
+      }
+    },
+    {
+      "code": "GREEN-BAZAAR",
+      "name": "Green Basket",
+      "rating": 4.3,
+      "ratingCount": 180,
+      "commissionRate": 6,
+      "serviceAreaWideDelivery": true,
+      "lng": 80.265,
+      "lat": 13.085,
+      "address": {
+        "city": "Chennai",
+        "state": "TN",
+        "country": "IN"
+      }
+    },
+    {
+      "code": "ANNA-NAGAR-MART",
+      "name": "Anna Nagar Daily Mart",
+      "rating": 4.4,
+      "ratingCount": 140,
+      "commissionRate": 7,
+      "serviceAreaWideDelivery": true,
+      "lng": 80.275,
+      "lat": 13.09,
+      "address": {
+        "city": "Chennai",
+        "state": "TN",
+        "country": "IN"
+      }
+    },
+    {
+      "code": "VELACHERY-FOODS",
+      "name": "Velachery Foods",
+      "rating": 4.2,
+      "ratingCount": 95,
+      "commissionRate": 6,
+      "lng": 80.22,
+      "lat": 12.975,
+      "address": {
+        "city": "Chennai",
+        "state": "TN",
+        "country": "IN"
+      }
+    },
+    {
+      "code": "TIRUVALLUR-MART",
+      "name": "Tiruvallur Local Mart",
+      "rating": 4.6,
+      "ratingCount": 88,
+      "commissionRate": 7,
+      "lng": 79.9186027,
+      "lat": 13.1425869,
+      "address": {
+        "city": "Tiruvallur",
+        "state": "TN",
+        "country": "IN"
+      }
+    }
+  ],
+  "products": [
+    {
+      "sku": "RICE-5KG",
+      "slug": "rice-5kg",
+      "categorySlug": "groceries",
+      "brand": "FreshMart Select",
+      "name": {
+        "en": "Rice 5 KG",
+        "ta": "அரிசி 5 கிலோ"
+      },
+      "description": {
+        "en": "Premium sona masoori rice",
+        "ta": "தரமான சோனா மசூரி அரிசி"
+      },
+      "imageUrl": "https://images.unsplash.com/photo-1586201375761-83865001e31c?w=400",
+      "variants": [
+        {
+          "sku": "RICE-5KG-V1",
+          "name": {
+            "en": "5 kg",
+            "ta": "5 கிலோ"
+          },
+          "vendorPricing": [
+            {
+              "vendorCode": "FRESH-FARM",
+              "vendorPrice": 500,
+              "mrp": 600,
+              "sellingPrice": 550,
+              "stock": 120
+            },
+            {
+              "vendorCode": "QUALITY-GROCERS",
+              "vendorPrice": 480,
+              "mrp": 580,
+              "sellingPrice": 520,
+              "stock": 85
+            },
+            {
+              "vendorCode": "GREEN-BAZAAR",
+              "vendorPrice": 510,
+              "mrp": 590,
+              "sellingPrice": 530,
+              "stock": 60
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "sku": "TOMATO-1KG",
+      "slug": "tomato-1kg",
+      "categorySlug": "fruits-vegetables",
+      "brand": "Farm Fresh",
+      "name": {
+        "en": "Tomato 1 KG",
+        "ta": "தக்காளி 1 கிலோ"
+      },
+      "description": {
+        "en": "Locally sourced tomatoes",
+        "ta": "உள்ளூர் தக்காளி"
+      },
+      "imageUrl": "https://images.unsplash.com/photo-1546094096-0df4faaa2660?w=400",
+      "variants": [
+        {
+          "sku": "TOMATO-1KG-V1",
+          "name": {
+            "en": "1 kg",
+            "ta": "1 கிலோ"
+          },
+          "vendorPricing": [
+            {
+              "vendorCode": "FRESH-FARM",
+              "vendorPrice": 35,
+              "mrp": 50,
+              "sellingPrice": 42,
+              "stock": 200
+            },
+            {
+              "vendorCode": "GREEN-BAZAAR",
+              "vendorPrice": 32,
+              "mrp": 48,
+              "sellingPrice": 40,
+              "stock": 150
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "sku": "MILK-1L",
+      "slug": "milk-1l",
+      "categorySlug": "dairy",
+      "brand": "Daily Dairy",
+      "name": {
+        "en": "Fresh Full Cream Milk",
+        "ta": "புதிய முழு கிரீம் பால்"
+      },
+      "description": {
+        "en": "Pasteurized full cream milk",
+        "ta": "பasteurized full cream milk"
+      },
+      "imageUrl": "https://images.unsplash.com/photo-1563636619-e9143da7973b?w=400",
+      "variants": [
+        {
+          "sku": "MILK-1L-V1",
+          "name": {
+            "en": "1 liter",
+            "ta": "1 லிட்டர்"
+          },
+          "vendorPricing": [
+            {
+              "vendorCode": "QUALITY-GROCERS",
+              "vendorPrice": 55,
+              "mrp": 65,
+              "sellingPrice": 60,
+              "stock": 90
+            },
+            {
+              "vendorCode": "GREEN-BAZAAR",
+              "vendorPrice": 54,
+              "mrp": 64,
+              "sellingPrice": 58,
+              "stock": 70
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "sku": "BANANA-DOZ",
+      "slug": "banana-dozen",
+      "categorySlug": "fruits-vegetables",
+      "brand": "Tropical",
+      "name": {
+        "en": "Banana (12 pcs)",
+        "ta": "வாழைப்பழம் (12)"
+      },
+      "description": {
+        "en": "Ripe bananas",
+        "ta": "பழுத்த வாழைப்பழம்"
+      },
+      "imageUrl": "https://images.unsplash.com/photo-1571771894821-ce9b6c11b08e?w=400",
+      "variants": [
+        {
+          "sku": "BANANA-DOZ-V1",
+          "name": {
+            "en": "12 pcs",
+            "ta": "12 பழங்கள்"
+          },
+          "vendorPricing": [
+            {
+              "vendorCode": "FRESH-FARM",
+              "vendorPrice": 48,
+              "mrp": 60,
+              "sellingPrice": 55,
+              "stock": 110
+            },
+            {
+              "vendorCode": "QUALITY-GROCERS",
+              "vendorPrice": 45,
+              "mrp": 58,
+              "sellingPrice": 52,
+              "stock": 95
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "sku": "SUNFLOWER-OIL-1L",
+      "slug": "sunflower-oil-1l",
+      "categorySlug": "groceries",
+      "brand": "Golden Fields",
+      "name": {
+        "en": "Sunflower Oil 1L",
+        "ta": "சூரியகாந்தி எண்ணெய் 1லி"
+      },
+      "description": {
+        "en": "Refined sunflower cooking oil",
+        "ta": "சுத்திகரிக்கப்பட்ட சூரியகாந்தி எண்ணெய்"
+      },
+      "imageUrl": "https://images.unsplash.com/photo-1474979266404-7eaacbcd87c5?w=400",
+      "variants": [
+        {
+          "sku": "SUNFLOWER-OIL-1L-V1",
+          "name": {
+            "en": "1 liter",
+            "ta": "1 லிட்டர்"
+          },
+          "vendorPricing": [
+            {
+              "vendorCode": "FRESH-FARM",
+              "vendorPrice": 145,
+              "mrp": 170,
+              "sellingPrice": 150,
+              "stock": 80
+            },
+            {
+              "vendorCode": "QUALITY-GROCERS",
+              "vendorPrice": 140,
+              "mrp": 165,
+              "sellingPrice": 148,
+              "stock": 65
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "sku": "MILK-TONED-500",
+      "slug": "toned-milk-500ml",
+      "categorySlug": "dairy",
+      "brand": "Daily Dairy",
+      "name": {
+        "en": "Toned Milk",
+        "ta": "டோன்டு பால்"
+      },
+      "description": {
+        "en": "500 ml toned milk",
+        "ta": "500 மிலி டோன்டு பால்"
+      },
+      "imageUrl": "https://images.unsplash.com/photo-1628088062854-d1870b4553da?w=400",
+      "variants": [
+        {
+          "sku": "MILK-TONED-500-V1",
+          "name": {
+            "en": "500 ml",
+            "ta": "500 மிலி"
+          },
+          "vendorPricing": [
+            {
+              "vendorCode": "QUALITY-GROCERS",
+              "vendorPrice": 34,
+              "mrp": 42,
+              "sellingPrice": 38,
+              "stock": 200
+            },
+            {
+              "vendorCode": "FRESH-FARM",
+              "vendorPrice": 36,
+              "mrp": 44,
+              "sellingPrice": 40,
+              "stock": 150
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "sku": "EGGS-FARM-6",
+      "slug": "farm-fresh-eggs-6",
+      "categorySlug": "dairy",
+      "brand": "Farm Fresh",
+      "name": {
+        "en": "Farm Fresh Eggs",
+        "ta": "பண்ணை முட்டைகள்"
+      },
+      "description": {
+        "en": "6 pack brown eggs",
+        "ta": "6 முட்டை பேக்"
+      },
+      "imageUrl": "https://images.unsplash.com/photo-1582722878405-44d4fcb0a7d0?w=400",
+      "variants": [
+        {
+          "sku": "EGGS-FARM-6-V1",
+          "name": {
+            "en": "6 Pack",
+            "ta": "6 பேக்"
+          },
+          "vendorPricing": [
+            {
+              "vendorCode": "FRESH-FARM",
+              "vendorPrice": 88,
+              "mrp": 105,
+              "sellingPrice": 95,
+              "stock": 80
+            },
+            {
+              "vendorCode": "QUALITY-GROCERS",
+              "vendorPrice": 90,
+              "mrp": 108,
+              "sellingPrice": 98,
+              "stock": 60
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "sku": "BREAD-WW-400",
+      "slug": "whole-wheat-bread-400g",
+      "categorySlug": "groceries",
+      "brand": "Daily Bake",
+      "name": {
+        "en": "Whole Wheat Brown Bread",
+        "ta": "முழு கோதுமை ரொட்டி"
+      },
+      "description": {
+        "en": "400g loaf",
+        "ta": "400 கிராம்"
+      },
+      "imageUrl": "https://images.unsplash.com/photo-1509440159596-0249088772ff?w=400",
+      "variants": [
+        {
+          "sku": "BREAD-WW-400-V1",
+          "name": {
+            "en": "400g",
+            "ta": "400g"
+          },
+          "vendorPricing": [
+            {
+              "vendorCode": "QUALITY-GROCERS",
+              "vendorPrice": 40,
+              "mrp": 50,
+              "sellingPrice": 45,
+              "stock": 70
+            },
+            {
+              "vendorCode": "GREEN-BAZAAR",
+              "vendorPrice": 42,
+              "mrp": 52,
+              "sellingPrice": 47,
+              "stock": 55
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "sku": "BREAD-SOURDOUGH",
+      "slug": "artisan-sourdough-loaf",
+      "categorySlug": "groceries",
+      "brand": "Artisan Bake",
+      "name": {
+        "en": "Artisan Sourdough Loaf",
+        "ta": "ஆர்டிசன் சௌர் டோ லோஃப்"
+      },
+      "description": {
+        "en": "Handcrafted sourdough bread",
+        "ta": "கைவினை ரொட்டி"
+      },
+      "imageUrl": "https://images.unsplash.com/photo-1549931319-a545dcf3bc73?w=400",
+      "variants": [
+        {
+          "sku": "BREAD-SOURDOUGH-V1",
+          "name": {
+            "en": "1 Unit",
+            "ta": "1 யூனிட்"
+          },
+          "vendorPricing": [
+            {
+              "vendorCode": "GREEN-BAZAAR",
+              "vendorPrice": 420,
+              "mrp": 480,
+              "sellingPrice": 450,
+              "stock": 25
+            },
+            {
+              "vendorCode": "FRESH-FARM",
+              "vendorPrice": 430,
+              "mrp": 490,
+              "sellingPrice": 455,
+              "stock": 20
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "sku": "AVOCADO-ORG-2",
+      "slug": "organic-hass-avocados",
+      "categorySlug": "fruits-vegetables",
+      "brand": "Organic",
+      "name": {
+        "en": "Organic Hass Avocados",
+        "ta": "ஆர்கானic அவocado"
+      },
+      "description": {
+        "en": "2 units",
+        "ta": "2 பழங்கள்"
+      },
+      "imageUrl": "https://images.unsplash.com/photo-1523049673857-4b7f7a5e4c7e?w=400",
+      "variants": [
+        {
+          "sku": "AVOCADO-ORG-2-V1",
+          "name": {
+            "en": "2 Units",
+            "ta": "2 யூனிட்"
+          },
+          "vendorPricing": [
+            {
+              "vendorCode": "FRESH-FARM",
+              "vendorPrice": 380,
+              "mrp": 450,
+              "sellingPrice": 399,
+              "stock": 40
+            },
+            {
+              "vendorCode": "GREEN-BAZAAR",
+              "vendorPrice": 370,
+              "mrp": 440,
+              "sellingPrice": 389,
+              "stock": 35
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "sku": "STRAWBERRY-ORG-500",
+      "slug": "organic-strawberries-500g",
+      "categorySlug": "fruits-vegetables",
+      "brand": "Farm Fresh",
+      "name": {
+        "en": "Organic Strawberries",
+        "ta": "ஆர்கானic ஸ்ட்ராபெர்ரி"
+      },
+      "description": {
+        "en": "500g pack",
+        "ta": "500g"
+      },
+      "imageUrl": "https://images.unsplash.com/photo-1464450466393-ffa1658562c3?w=400",
+      "variants": [
+        {
+          "sku": "STRAWBERRY-ORG-500-V1",
+          "name": {
+            "en": "500g",
+            "ta": "500g"
+          },
+          "vendorPricing": [
+            {
+              "vendorCode": "FRESH-FARM",
+              "vendorPrice": 150,
+              "mrp": 180,
+              "sellingPrice": 150,
+              "stock": 45
+            },
+            {
+              "vendorCode": "GREEN-BAZAAR",
+              "vendorPrice": 155,
+              "mrp": 185,
+              "sellingPrice": 155,
+              "stock": 30
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "sku": "APPLE-GREEN-500",
+      "slug": "green-apples",
+      "categorySlug": "fruits-vegetables",
+      "brand": "Hill Fresh",
+      "name": {
+        "en": "Green Apples",
+        "ta": "பச்சை ஆப்பிள்"
+      },
+      "description": {
+        "en": "4 units approx 600g",
+        "ta": "4 பழங்கள்"
+      },
+      "imageUrl": "https://images.unsplash.com/photo-1560806887-1e4cd0b6cbd6?w=400",
+      "variants": [
+        {
+          "sku": "APPLE-GREEN-500-V1",
+          "name": {
+            "en": "4 units",
+            "ta": "4 பழங்கள்"
+          },
+          "vendorPricing": [
+            {
+              "vendorCode": "FRESH-FARM",
+              "vendorPrice": 110,
+              "mrp": 130,
+              "sellingPrice": 120,
+              "stock": 90
+            },
+            {
+              "vendorCode": "QUALITY-GROCERS",
+              "vendorPrice": 108,
+              "mrp": 128,
+              "sellingPrice": 118,
+              "stock": 75
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "sku": "BANANA-GOLD-1KG",
+      "slug": "golden-bananas-1kg",
+      "categorySlug": "fruits-vegetables",
+      "brand": "Tropical",
+      "name": {
+        "en": "Golden Bananas",
+        "ta": "பொன் வாழை"
+      },
+      "description": {
+        "en": "1 kg",
+        "ta": "1 கிலோ"
+      },
+      "imageUrl": "https://images.unsplash.com/photo-1571771894821-ce9b6c11b08e?w=400",
+      "variants": [
+        {
+          "sku": "BANANA-GOLD-1KG-V1",
+          "name": {
+            "en": "1kg",
+            "ta": "1 கிலோ"
+          },
+          "vendorPricing": [
+            {
+              "vendorCode": "FRESH-FARM",
+              "vendorPrice": 52,
+              "mrp": 65,
+              "sellingPrice": 60,
+              "stock": 120
+            },
+            {
+              "vendorCode": "GREEN-BAZAAR",
+              "vendorPrice": 50,
+              "mrp": 62,
+              "sellingPrice": 58,
+              "stock": 100
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "sku": "BROCCOLI-500",
+      "slug": "fresh-broccoli-500g",
+      "categorySlug": "fruits-vegetables",
+      "brand": "Farm Fresh",
+      "name": {
+        "en": "Fresh Broccoli",
+        "ta": "ப்ரோக்கோலி"
+      },
+      "description": {
+        "en": "500g",
+        "ta": "500g"
+      },
+      "imageUrl": "https://images.unsplash.com/photo-1459411621453-7b03977f4bfc?w=400",
+      "variants": [
+        {
+          "sku": "BROCCOLI-500-V1",
+          "name": {
+            "en": "500g",
+            "ta": "500g"
+          },
+          "vendorPricing": [
+            {
+              "vendorCode": "GREEN-BAZAAR",
+              "vendorPrice": 85,
+              "mrp": 100,
+              "sellingPrice": 95,
+              "stock": 65
+            },
+            {
+              "vendorCode": "FRESH-FARM",
+              "vendorPrice": 88,
+              "mrp": 105,
+              "sellingPrice": 98,
+              "stock": 50
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "sku": "CHIPS-CLASSIC",
+      "slug": "classic-potato-chips",
+      "categorySlug": "snacks",
+      "brand": "Crunchy",
+      "name": {
+        "en": "Classic Potato Chips",
+        "ta": "சிப்ஸ்"
+      },
+      "description": {
+        "en": "150g pack",
+        "ta": "150g"
+      },
+      "imageUrl": "https://images.unsplash.com/photo-1566478989037-eec170784d0b?w=400",
+      "variants": [
+        {
+          "sku": "CHIPS-CLASSIC-V1",
+          "name": {
+            "en": "150g",
+            "ta": "150g"
+          },
+          "vendorPricing": [
+            {
+              "vendorCode": "QUALITY-GROCERS",
+              "vendorPrice": 38,
+              "mrp": 45,
+              "sellingPrice": 40,
+              "stock": 100
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "sku": "JUICE-ORANGE-1L",
+      "slug": "orange-juice-1l",
+      "categorySlug": "beverages",
+      "brand": "Sun Sip",
+      "name": {
+        "en": "Fresh Orange Juice",
+        "ta": "ஆரஞ்சு ஜூஸ்"
+      },
+      "description": {
+        "en": "1 liter",
+        "ta": "1 லிட்டர்"
+      },
+      "imageUrl": "https://images.unsplash.com/photo-1621506289937-a8e4df240d0?w=400",
+      "variants": [
+        {
+          "sku": "JUICE-ORANGE-1L-V1",
+          "name": {
+            "en": "1 Litre",
+            "ta": "1 லிட்டர்"
+          },
+          "vendorPricing": [
+            {
+              "vendorCode": "GREEN-BAZAAR",
+              "vendorPrice": 95,
+              "mrp": 110,
+              "sellingPrice": 99,
+              "stock": 60
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "sku": "TOMATO-HYB-500",
+      "slug": "organic-hybrid-tomatoes-500g",
+      "categorySlug": "fruits-vegetables",
+      "brand": "Organic",
+      "name": {
+        "en": "Organic Hybrid Tomatoes",
+        "ta": "ஆர்கானic தக்காளி"
+      },
+      "description": {
+        "en": "500g",
+        "ta": "500g"
+      },
+      "imageUrl": "https://images.unsplash.com/photo-1546094096-0df4faaa2660?w=400",
+      "variants": [
+        {
+          "sku": "TOMATO-HYB-500-V1",
+          "name": {
+            "en": "500g",
+            "ta": "500g"
+          },
+          "vendorPricing": [
+            {
+              "vendorCode": "FRESH-FARM",
+              "vendorPrice": 28,
+              "mrp": 38,
+              "sellingPrice": 32,
+              "stock": 180
+            },
+            {
+              "vendorCode": "QUALITY-GROCERS",
+              "vendorPrice": 30,
+              "mrp": 40,
+              "sellingPrice": 34,
+              "stock": 140
+            }
+          ]
+        }
+      ]
+    }
+  ]
+}

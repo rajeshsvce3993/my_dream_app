@@ -1,0 +1,51 @@
+services:
+  mongodb:
+    image: mongo:7
+    restart: unless-stopped
+    ports:
+      - "27017:27017"
+    volumes:
+      - mongodb_data:/data/db
+    healthcheck:
+      test: ["CMD", "mongosh", "--eval", "db.adminCommand('ping')"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  redis:
+    image: redis:7-alpine
+    restart: unless-stopped
+    ports:
+      - "6379:6379"
+    volumes:
+      - redis_data:/data
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  backend:
+    build:
+      context: ./apps/backend
+      dockerfile: Dockerfile
+    restart: unless-stopped
+    ports:
+      - "4000:4000"
+    env_file:
+      - .env
+    environment:
+      MONGODB_URI: mongodb://mongodb:27017/dream_commerce
+      REDIS_URL: redis://redis:6379
+    depends_on:
+      mongodb:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    volumes:
+      - backend_uploads:/app/uploads
+
+volumes:
+  mongodb_data:
+  redis_data:
+  backend_uploads:

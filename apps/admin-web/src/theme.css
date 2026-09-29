@@ -1,0 +1,5 @@
+@import '../../../packages/design-tokens/tokens.css';
+
+:root {
+  font-family: Inter, system-ui, sans-serif;
+}

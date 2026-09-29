@@ -1,0 +1,15 @@
+{
+  "comment": "Single source of truth for Expo SDK 57 pins shared by apps/mobile and apps/delivery",
+  "expo": "57.0.22",
+  "expo-constants": "57.0.18",
+  "expo-linking": "57.0.10",
+  "expo-location": "57.0.17",
+  "expo-router": "57.0.21",
+  "expo-secure-store": "57.0.4",
+  "expo-status-bar": "57.0.1",
+  "babel-preset-expo": "57.0.11",
+  "react": "19.2.3",
+  "react-native": "0.86.3",
+  "react-native-safe-area-context": "5.7.0",
+  "react-native-screens": "4.26.2"
+}

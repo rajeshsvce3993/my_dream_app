@@ -1,0 +1,14 @@
+{
+  "expo": {
+    "name": "Dream Vendor",
+    "slug": "dream-vendor",
+    "scheme": "dreamvendor",
+    "version": "1.0.0",
+    "orientation": "portrait",
+    "userInterfaceStyle": "automatic",
+    "plugins": ["expo-router"],
+    "experiments": {
+      "typedRoutes": true
+    }
+  }
+}

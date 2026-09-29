@@ -1,0 +1,64 @@
+name: CI
+
+on:
+  push:
+    branches: [main, master]
+  pull_request:
+
+jobs:
+  backend:
+    runs-on: ubuntu-latest
+    services:
+      mongodb:
+        image: mongo:7
+        ports: ['27017:27017']
+      redis:
+        image: redis:7-alpine
+        ports: ['6379:6379']
+    defaults:
+      run:
+        working-directory: apps/backend
+    env:
+      NODE_ENV: test
+      PORT: 4000
+      API_PREFIX: /api/v1
+      MONGODB_URI: mongodb://localhost:27017/dream_commerce_test
+      REDIS_URL: redis://localhost:6379
+      JWT_ACCESS_SECRET: test-access-secret-12345678901234567890
+      JWT_REFRESH_SECRET: test-refresh-secret-12345678901234567890
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+          cache-dependency-path: apps/backend/package-lock.json
+      - run: npm install
+      - run: npm run typecheck
+      - run: npm test
+
+  admin-web:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: apps/admin-web
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+      - run: npm install
+      - run: npm run typecheck
+
+  customer-web:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: apps/customer-web
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+      - run: npm install
+      - run: npm run typecheck

@@ -1,0 +1,270 @@
+@import './theme.css';
+
+* {
+  box-sizing: border-box;
+}
+
+body {
+  margin: 0;
+  background: var(--fm-bg);
+  color: var(--fm-secondary);
+}
+
+.layout {
+  display: grid;
+  grid-template-columns: 260px 1fr;
+  min-height: 100vh;
+}
+
+.sidebar {
+  background: var(--fm-secondary);
+  color: #e2e8f0;
+  padding: 1.25rem 1rem;
+}
+
+.sidebar nav {
+  display: flex;
+  flex-direction: column;
+  gap: 0.35rem;
+  margin-top: 1.25rem;
+}
+
+.sidebar a {
+  padding: 0.55rem 0.75rem;
+  border-radius: 8px;
+  color: inherit;
+  text-decoration: none;
+}
+
+.sidebar a.active,
+.sidebar a:hover {
+  background: rgba(255, 255, 255, 0.08);
+}
+
+.content {
+  padding: 1.25rem 1.5rem;
+}
+
+.metric-grid {
+  display: grid;
+  gap: 1rem;
+  grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+}
+
+.metric-card {
+  background: var(--fm-surface);
+  border: 1px solid var(--fm-border);
+  border-radius: 12px;
+  padding: 1rem;
+}
+
+.metric-card strong {
+  font-size: 1.4rem;
+  color: var(--fm-primary);
+}
+
+.panel {
+  background: var(--fm-surface);
+  border: 1px solid var(--fm-border);
+  border-radius: 12px;
+  padding: 1rem;
+  margin-top: 1rem;
+}
+
+.chart-bars {
+  display: flex;
+  align-items: flex-end;
+  gap: 0.5rem;
+  height: 120px;
+}
+
+.chart-bars span {
+  flex: 1;
+  background: var(--gradient-brand-vertical);
+  border-radius: 6px 6px 0 0;
+  min-height: 12px;
+}
+
+button,
+.btn {
+  background: var(--fm-primary);
+  color: white;
+  border: none;
+  border-radius: 8px;
+  padding: 0.5rem 0.9rem;
+  cursor: pointer;
+}
+
+input,
+select,
+textarea {
+  width: 100%;
+  padding: 0.5rem 0.65rem;
+  border: 1px solid var(--fm-border);
+  border-radius: 8px;
+}
+
+table {
+  width: 100%;
+  border-collapse: collapse;
+}
+
+th,
+td {
+  border-bottom: 1px solid var(--fm-border);
+  padding: 0.6rem;
+  text-align: left;
+}
+
+.error {
+  color: var(--fm-error);
+}
+
+.form-grid {
+  display: grid;
+  gap: 0.75rem;
+  max-width: 520px;
+}
+
+.admin-topbar {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 1rem;
+  gap: 1rem;
+}
+
+.admin-search {
+  max-width: 320px;
+}
+
+.admin-profile {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  font-weight: 600;
+}
+
+.admin-avatar {
+  width: 32px;
+  height: 32px;
+  border-radius: 999px;
+  background: var(--fm-primary);
+  color: white;
+  display: grid;
+  place-items: center;
+  font-size: 0.85rem;
+}
+
+.admin-page-head {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 1rem;
+}
+
+.admin-date-range {
+  color: var(--fm-muted);
+  font-size: 0.9rem;
+}
+
+.metric-grid-4 {
+  grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+}
+
+.metric-delta {
+  display: inline-block;
+  margin-left: 0.35rem;
+  color: var(--fm-success);
+  font-size: 0.85rem;
+  font-weight: 600;
+}
+
+.dashboard-charts {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 1rem;
+}
+
+.chart-line {
+  display: flex;
+  align-items: flex-end;
+  gap: 0.35rem;
+  height: 140px;
+}
+
+.chart-line span {
+  flex: 1;
+  background: var(--gradient-brand-vertical);
+  border-radius: 4px 4px 0 0;
+  min-height: 8px;
+}
+
+.chart-legend {
+  display: flex;
+  gap: 1rem;
+  margin-top: 0.5rem;
+  font-size: 0.85rem;
+}
+
+.chart-legend .muted {
+  color: var(--fm-muted);
+}
+
+.chart-bars.grouped .bar-group {
+  flex: 1;
+  display: flex;
+  gap: 3px;
+  align-items: flex-end;
+  height: 120px;
+}
+
+.chart-bars.grouped .bar-group span {
+  flex: 1;
+  background: var(--gradient-brand-vertical);
+  border-radius: 4px 4px 0 0;
+  min-height: 8px;
+}
+
+.muted-bar {
+  opacity: 0.35;
+}
+
+.dashboard-widgets {
+  display: grid;
+  grid-template-columns: 2fr 1fr 1fr;
+  gap: 1rem;
+}
+
+.panel-wide {
+  grid-column: span 1;
+}
+
+.simple-list {
+  list-style: none;
+  padding: 0;
+  margin: 0;
+}
+
+.simple-list li {
+  padding: 0.35rem 0;
+  border-bottom: 1px solid var(--fm-border);
+}
+
+.status-pill {
+  font-size: 0.75rem;
+  padding: 0.15rem 0.5rem;
+  border-radius: 999px;
+  background: var(--color-neutral-bg);
+}
+
+.warn {
+  color: var(--fm-error);
+}
+
+@media (max-width: 1100px) {
+  .dashboard-charts,
+  .dashboard-widgets {
+    grid-template-columns: 1fr;
+  }
+}

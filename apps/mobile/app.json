@@ -1,0 +1,14 @@
+{
+  "expo": {
+    "name": "Dream Shop",
+    "slug": "dream-shop",
+    "scheme": "dreamshop",
+    "version": "1.0.0",
+    "orientation": "portrait",
+    "userInterfaceStyle": "automatic",
+    "plugins": ["expo-router"],
+    "experiments": {
+      "typedRoutes": true
+    }
+  }
+}

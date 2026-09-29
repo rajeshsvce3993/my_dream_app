@@ -1,0 +1,14 @@
+{
+  "expo": {
+    "name": "Dream Delivery",
+    "slug": "dream-delivery",
+    "scheme": "dreamdelivery",
+    "version": "1.0.0",
+    "orientation": "portrait",
+    "userInterfaceStyle": "automatic",
+    "plugins": ["expo-router"],
+    "experiments": {
+      "typedRoutes": true
+    }
+  }
+}

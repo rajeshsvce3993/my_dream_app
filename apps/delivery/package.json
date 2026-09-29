@@ -1,0 +1,36 @@
+{
+  "name": "@dream/delivery",
+  "private": true,
+  "version": "1.0.0",
+  "main": "expo-router/entry",
+  "scripts": {
+    "start": "expo start --port 8082 --lan",
+    "start:clear": "expo start --port 8082 --lan -c",
+    "start:tunnel": "expo start --port 8082 --tunnel",
+    "android": "expo start --port 8082 --lan --android",
+    "ios": "expo start --port 8082 --lan --ios",
+    "typecheck": "tsc --noEmit",
+    "doctor": "npx expo-doctor"
+  },
+  "dependencies": {
+    "@expo/vector-icons": "^15.0.2",
+    "@tanstack/react-query": "^5.62.8",
+    "expo": "57.0.22",
+    "expo-constants": "57.0.18",
+    "expo-linking": "57.0.10",
+    "expo-router": "57.0.21",
+    "expo-secure-store": "57.0.4",
+    "expo-status-bar": "57.0.1",
+    "react": "19.2.3",
+    "react-dom": "19.2.3",
+    "react-native": "0.86.3",
+    "react-native-safe-area-context": "5.7.0",
+    "react-native-screens": "4.26.2",
+    "react-native-web": "^0.21.2"
+  },
+  "devDependencies": {
+    "@types/react": "~19.2.2",
+    "babel-preset-expo": "57.0.11",
+    "typescript": "~6.0.3"
+  }
+}
