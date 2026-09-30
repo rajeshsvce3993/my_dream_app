@@ -22,8 +22,8 @@ export function ProfilePage() {
   const menu = [
     { to: '/orders', icon: Package, label: 'My Orders' },
     { to: '/delivery-address', icon: MapPin, label: 'My Addresses' },
-    { to: '/profile', icon: Heart, label: 'Wishlist' },
-    { to: '/profile', icon: Settings, label: 'Account Settings' },
+    { to: '/restaurants', icon: Heart, label: 'Restaurants' },
+    { to: '/offers', icon: Settings, label: 'Offers' },
   ];
 
   return (

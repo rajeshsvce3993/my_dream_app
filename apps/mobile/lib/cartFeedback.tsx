@@ -167,7 +167,7 @@ export function CartFeedbackProvider({ children }: { children: ReactNode }) {
               flexDirection: 'row',
               alignItems: 'center',
               gap: spacing.md,
-              backgroundColor: toast.kind === 'order' ? theme.success : theme.primaryDark,
+              backgroundColor: toast.kind === 'order' ? theme.success : theme.bannerBg,
               paddingVertical: 14,
               paddingHorizontal: spacing.lg,
               borderRadius: radius.lg,

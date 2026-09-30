@@ -50,12 +50,23 @@ export function openConfiguredPath(
   }
 
   if (raw === '/search' || raw.startsWith('/search?')) {
-    router.push('/(tabs)/search');
+    router.push({ pathname: '/(tabs)/search', params: { mode: 'search' } });
     return;
   }
 
   if (raw === '/cart') {
     router.push('/(tabs)/cart');
+    return;
+  }
+
+  if (raw === '/restaurants' || raw.startsWith('/restaurants?')) {
+    router.push('/restaurants' as Href);
+    return;
+  }
+
+  if (raw === '/stores') {
+    if (options?.location) void openStoresMenuOrAlert(options.location);
+    else router.push('/(tabs)/categories');
     return;
   }
 
@@ -66,14 +77,18 @@ export function openConfiguredPath(
   }
 
   if (raw === '/(tabs)/categories' || isStoresTabHref(raw)) {
-    if (options?.location) void openStoresMenuOrAlert(options.location);
-    else router.push('/(tabs)/categories');
+    // From home/banner: use stack restaurants screen so back arrow is available.
+    router.push('/restaurants' as Href);
+    return;
+  }
+
+  if (raw.startsWith('/vendors/') || raw.startsWith('/category/')) {
+    router.push(raw as Href);
     return;
   }
 
   if (raw.startsWith('/')) {
-    if (options?.location) void openStoresMenuOrAlert(options.location);
-    else router.push('/(tabs)/categories');
+    router.push(raw as Href);
     return;
   }
 

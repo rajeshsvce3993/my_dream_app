@@ -11,24 +11,12 @@ import { OrdersPage } from './pages/OrdersPage';
 import { OrderDetailPage } from './pages/OrderDetailPage';
 import { ConfigurationPage } from './pages/ConfigurationPage';
 import { VendorMappingPage } from './pages/VendorMappingPage';
-import { PlaceholderPage } from './pages/PlaceholderPage';
 import { DeliveryZonesPage } from './pages/DeliveryZonesPage';
 import { DeliveryPeoplePage } from './pages/DeliveryPeoplePage';
 import { VendorStaffPage } from './pages/VendorStaffPage';
-
-const placeholderPaths = [
-  'pricing',
-  'offers',
-  'coupons',
-  'inventory',
-  'customers',
-  'payments',
-  'notifications',
-  'reports',
-  'roles',
-  'audit-logs',
-  'settings',
-] as const;
+import { HomeVerticalsPage } from './pages/HomeVerticalsPage';
+import { HomeTopPicksPage } from './pages/HomeTopPicksPage';
+import { CustomersPage } from './pages/CustomersPage';
 
 export function App() {
   return (
@@ -51,13 +39,14 @@ export function App() {
         <Route path="vendor-mapping" element={<VendorMappingPage />} />
         <Route path="orders" element={<OrdersPage />} />
         <Route path="orders/:id" element={<OrderDetailPage />} />
+        <Route path="customers" element={<CustomersPage />} />
         <Route path="configuration" element={<ConfigurationPage />} />
+        <Route path="home-verticals" element={<HomeVerticalsPage />} />
+        <Route path="home-top-picks" element={<HomeTopPicksPage />} />
         <Route path="delivery" element={<DeliveryZonesPage />} />
         <Route path="delivery-partners" element={<DeliveryPeoplePage />} />
         <Route path="vendor-partners" element={<VendorStaffPage />} />
-        {placeholderPaths.map((path) => (
-          <Route key={path} path={path} element={<PlaceholderPage />} />
-        ))}
+        <Route path="*" element={<Navigate to="/dashboard" replace />} />
       </Route>
     </Routes>
   );

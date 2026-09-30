@@ -1,8 +1,12 @@
-/** FreshMart brand colors — shared across web apps. */
+/** Dream Food — Harbor Night + warm parchment (shared). */
 export const brandColors = {
-  primary: '#0A7A52',
-  secondary: '#0F172A',
-  accent: '#FF5C35',
+  primary: '#163447',
+  secondary: '#0F2430',
+  accent: '#3E8A9A',
+  bg: '#FCFAF7',
+  headerBg: '#0F2430',
+  footerBg: '#E8E0D6',
+  surface: '#EAE3DA',
 } as const;
 
 export type HomeSectionType =
@@ -12,4 +16,5 @@ export type HomeSectionType =
   | 'product_row'
   | 'vendor_row'
   | 'promo_strip'
-  | 'value_props';
+  | 'value_props'
+  | 'top_picks';

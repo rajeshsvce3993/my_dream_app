@@ -9,7 +9,7 @@ export type DeliveryLocation = {
   country?: string;
 };
 
-const STORAGE_KEY = 'freshmart.location';
+const STORAGE_KEY = 'dreamfood.location';
 
 const defaultLocation: DeliveryLocation = {
   label: 'Anna Nagar, Chennai',
@@ -30,8 +30,13 @@ const LocationContext = createContext<LocationContextValue | null>(null);
 
 function readStored(): DeliveryLocation {
   try {
-    const raw = localStorage.getItem(STORAGE_KEY);
-    if (raw) return JSON.parse(raw) as DeliveryLocation;
+    const raw =
+      localStorage.getItem(STORAGE_KEY) ?? localStorage.getItem('freshmart.location');
+    if (raw) {
+      const parsed = JSON.parse(raw) as DeliveryLocation;
+      localStorage.setItem(STORAGE_KEY, JSON.stringify(parsed));
+      return parsed;
+    }
   } catch {
     /* ignore */
   }

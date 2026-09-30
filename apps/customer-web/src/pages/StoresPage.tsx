@@ -1,8 +1,10 @@
 import { useQuery } from '@tanstack/react-query';
 import { Link } from 'react-router-dom';
-import { MapPin, Star, Clock, Store, StoreIcon } from 'lucide-react';
-import { apiRequestWithMeta } from '../api/client';
+import { useMemo, useState } from 'react';
+import { MapPin, Star, Clock, Store, UtensilsCrossed } from 'lucide-react';
+import { apiRequest, apiRequestWithMeta } from '../api/client';
 import { useLocationContext } from '../context/LocationContext';
+import { useLocale } from '../context/LocaleContext';
 import { EmptyState } from '../design-system/EmptyState';
 import { Skeleton } from '../design-system/Skeleton';
 import { formatMoney } from '../lib/format';
@@ -21,11 +23,30 @@ export type CustomerVendorCard = {
   isOpen: boolean;
   productCount: number;
   address?: { city?: string };
+  cuisineTags?: string[];
+  dietType?: 'veg' | 'nonveg' | 'both';
+  imageUrl?: string;
 };
+
+type CuisineFilter = {
+  id: string;
+  label: { en: string; ta?: string };
+  cuisineTags?: string[];
+};
+
+const DEFAULT_FILTERS: CuisineFilter[] = [{ id: 'all', label: { en: 'All', ta: 'அனைத்தும்' } }];
+
+function vendorMatchesCuisine(store: CustomerVendorCard, chip: CuisineFilter): boolean {
+  if (!chip.cuisineTags?.length) return true;
+  const tags = (store.cuisineTags ?? []).map((t) => t.toLowerCase());
+  return chip.cuisineTags.some((t) => tags.includes(t.toLowerCase()));
+}
 
 export function StoresPage() {
   const { query } = useLocationContext();
   const { currency } = useBrand();
+  const { tName } = useLocale();
+  const [activeFilter, setActiveFilter] = useState('all');
 
   type LocationMeta = {
     inServiceArea: boolean;
@@ -34,6 +55,15 @@ export function StoresPage() {
     serviceAreaMessage?: string;
     vendorListEmptyMessage?: string;
   };
+
+  const config = useQuery({
+    queryKey: ['public-config'],
+    queryFn: () => apiRequest<Record<string, unknown>>('/configuration/public'),
+  });
+
+  const filters =
+    (config.data?.['mobile.restaurants.cuisineFilters'] as CuisineFilter[] | undefined) ??
+    DEFAULT_FILTERS;
 
   const vendors = useQuery({
     queryKey: ['vendors', query.lng, query.lat],
@@ -45,12 +75,32 @@ export function StoresPage() {
     },
   });
 
+  const activeChip = filters.find((f) => f.id === activeFilter) ?? filters[0];
+  const filtered = useMemo(() => {
+    const items = vendors.data?.items ?? [];
+    if (!activeChip || activeChip.id === 'all') return items;
+    return items.filter((v) => vendorMatchesCuisine(v, activeChip));
+  }, [activeChip, vendors.data?.items]);
+
   return (
     <div className="qc-stores-page">
       <header className="qc-page-header">
-        <h1>Stores near you</h1>
-        <p className="qc-caption">Compare local vendors — enter a store to shop their catalog only.</p>
+        <h1>Restaurants near you</h1>
+        <p className="qc-caption">Same kitchens as the mobile app — filter by cuisine and open a menu.</p>
       </header>
+
+      <div className="qc-chip-row qc-cuisine-row">
+        {filters.map((f) => (
+          <button
+            key={f.id}
+            type="button"
+            className={`qc-chip ${activeFilter === f.id ? 'is-active' : ''}`}
+            onClick={() => setActiveFilter(f.id)}
+          >
+            {tName(f.label)}
+          </button>
+        ))}
+      </div>
 
       {vendors.isLoading ? (
         <div className="qc-store-grid">
@@ -60,10 +110,10 @@ export function StoresPage() {
         </div>
       ) : null}
 
-      {!vendors.isLoading && !(vendors.data?.items?.length ?? 0) ? (
+      {!vendors.isLoading && !filtered.length ? (
         <EmptyState
-          icon={StoreIcon}
-          title="No stores available"
+          icon={UtensilsCrossed}
+          title="No restaurants available"
           description={
             vendors.data?.location?.vendorListEmptyMessage ??
             'Try updating your delivery location or check back later.'
@@ -72,10 +122,14 @@ export function StoresPage() {
       ) : null}
 
       <div className="qc-store-grid">
-        {(vendors.data?.items ?? []).map((store) => (
+        {filtered.map((store) => (
           <Link key={store.id} to={`/vendors/${store.id}`} className="qc-store-card">
             <div className="qc-store-card__cover">
-              <Store size={48} strokeWidth={1.2} aria-hidden />
+              {store.imageUrl ? (
+                <img src={store.imageUrl} alt="" loading="lazy" />
+              ) : (
+                <Store size={48} strokeWidth={1.2} aria-hidden />
+              )}
             </div>
             <div className="qc-store-card__body">
               <h2>{store.name}</h2>
@@ -94,11 +148,14 @@ export function StoresPage() {
                   </span>
                 ) : null}
               </div>
+              {(store.cuisineTags ?? []).length ? (
+                <p className="qc-caption">{store.cuisineTags!.join(' · ')}</p>
+              ) : null}
               <span className={`qc-store-status ${store.isOpen ? 'is-open' : 'is-closed'}`}>
                 {store.isOpen ? 'Open' : 'Closed'}
               </span>
               <p className="qc-caption">
-                {store.productCount} products · Min order {formatMoney(currency, store.minimumOrderAmount)}
+                {store.productCount} items · Min order {formatMoney(currency, store.minimumOrderAmount)}
               </p>
               {store.freeDeliveryThreshold > 0 ? (
                 <p className="qc-store-offer">

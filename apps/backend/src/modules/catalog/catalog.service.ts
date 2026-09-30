@@ -13,12 +13,15 @@ import {
 } from '../delivery/locationAvailability.js';
 import { quoteVendorOffers, quoteVendorOffersBatch, type VendorOfferComparison } from '../pricing/pricing.service.js';
 import { VendorProductModel } from '../products/vendorProduct.model.js';
+import { parseHomeVerticals, type HomeVertical } from './homeVerticals.types.js';
+import { parseHomeTopPicks, type HomeTopPick } from './homeTopPicks.types.js';
 import { normalizeSeedPrice } from '../../common/money.util.js';
 import { VendorModel } from '../vendors/vendor.model.js';
 import {
   pickCheapestQuoteForDisplay,
   productCardPriceFromQuote,
 } from './productCardPricing.js';
+import { productMatchesDietFilter, resolveProductDietType, vendorMatchesDietFilter } from './diet.util.js';
 
 type VendorComparison = VendorOfferComparison;
 
@@ -141,6 +144,8 @@ export type ProductCardSummary = {
   imageUrl?: string;
   variantId?: string;
   recommendedVendorId?: string;
+  /** Restaurant name when this card is a per-vendor offer. */
+  vendorName?: string;
   /** Product reference MRP (same for all vendors). */
   actualPrice?: number;
   mrp?: number;
@@ -155,6 +160,7 @@ export type ProductCardSummary = {
   rating?: number;
   labels: string[];
   unitLabel?: string;
+  dietType?: 'veg' | 'nonveg';
   serviceableAtLocation?: boolean;
   availabilityReason?: LocationAvailabilityReason;
   availabilityTitle?: string;
@@ -193,11 +199,27 @@ export async function buildProductSummaries(input: {
   }
   if (categoryObjectId) filter.categoryId = categoryObjectId;
   if (input.productIds?.length) filter._id = { $in: input.productIds };
-  if (input.q?.trim()) filter.$text = { $search: input.q.trim() };
+  if (input.q?.trim()) {
+    const terms = input.q
+      .trim()
+      .toLowerCase()
+      .split(/\s+/)
+      .map((t) => t.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'))
+      .filter((t) => t.length >= 2);
+    if (terms.length) {
+      // Soft AND-of-terms search (more reliable for dish names than $text alone)
+      filter.$and = terms.map((term) => {
+        const re = new RegExp(term, 'i');
+        return {
+          $or: [{ 'name.en': re }, { 'name.ta': re }, { searchKeywords: re }, { brand: re }, { sku: re }],
+        };
+      });
+    }
+  }
 
   const products = await ProductModel.find(filter)
-    .sort(input.q?.trim() ? { score: { $meta: 'textScore' } } : { createdAt: -1 })
-    .limit(limit)
+    .sort({ createdAt: -1 })
+    .limit(Math.max(limit * 2, 24))
     .lean();
   const summaries: ProductCardSummary[] = [];
 
@@ -241,6 +263,7 @@ export async function buildProductSummaries(input: {
       unitLabel: variant.name?.en,
       vendorCount: 0,
       labels: [],
+      dietType: resolveProductDietType({ dietType: product.dietType, name: product.name?.en }),
     };
 
     const quoted = quoteMap.get(variantId) ?? { comparison: emptyComparison(), vendorsAtLocation: 0 };
@@ -268,12 +291,170 @@ export async function buildProductSummaries(input: {
     summaries.push(summary);
   }
 
-  if (input.productIds?.length) {
-    const order = new Map(input.productIds.map((id, i) => [id, i]));
-    summaries.sort((a, b) => (order.get(a.productId) ?? 0) - (order.get(b.productId) ?? 0));
+  // Prefer dishes available from nearby restaurants when searching / top picks
+  let result = summaries;
+  if (input.q?.trim() && input.lng !== undefined && input.lat !== undefined) {
+    const available = summaries.filter((s) => (s.vendorCount ?? 0) > 0 && s.serviceableAtLocation !== false);
+    if (available.length) result = available;
   }
 
-  return summaries;
+  if (input.productIds?.length) {
+    const order = new Map(input.productIds.map((id, i) => [id, i]));
+    result.sort((a, b) => (order.get(a.productId) ?? 0) - (order.get(b.productId) ?? 0));
+  }
+
+  return result.slice(0, limit);
+}
+
+/**
+ * One row per nearby restaurant that sells a matching dish (top picks / search).
+ * Same soft name match as product-summaries, expanded across vendor offers.
+ */
+export async function buildDishOffersNearMe(input: {
+  lng?: number;
+  lat?: number;
+  limit?: number;
+  q?: string;
+  /** When set, only products (and matching restaurants) for this diet. */
+  diet?: 'veg' | 'nonveg';
+}): Promise<ProductCardSummary[]> {
+  const limit = Math.min(80, input.limit ?? 40);
+  const q = input.q?.trim();
+  if (!q || q.length < 2) return [];
+
+  const filter: Record<string, unknown> = { status: 'ACTIVE' };
+  const terms = q
+    .toLowerCase()
+    .split(/\s+/)
+    .map((t) => t.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'))
+    .filter((t) => t.length >= 2);
+  if (!terms.length) return [];
+  filter.$and = terms.map((term) => {
+    const re = new RegExp(term, 'i');
+    return {
+      $or: [{ 'name.en': re }, { 'name.ta': re }, { searchKeywords: re }, { brand: re }, { sku: re }],
+    };
+  });
+  if (input.diet === 'veg' || input.diet === 'nonveg') {
+    filter.dietType = input.diet;
+  }
+
+  const products = await ProductModel.find(filter).sort({ createdAt: -1 }).limit(24).lean();
+  // Fallback: if dietType not seeded yet, keep name matches and filter in memory
+  let productList = products;
+  if (!productList.length && (input.diet === 'veg' || input.diet === 'nonveg')) {
+    const { dietType: _omit, ...withoutDiet } = filter as Record<string, unknown> & { dietType?: string };
+    void _omit;
+    productList = await ProductModel.find(withoutDiet).sort({ createdAt: -1 }).limit(24).lean();
+    productList = productList.filter((p) =>
+      productMatchesDietFilter(p.dietType, input.diet!, p.name?.en),
+    );
+  }
+  if (!productList.length) return [];
+
+  const productIds = productList.map((p) => p._id);
+  const variantDocs = await ProductVariantModel.find({
+    productId: { $in: productIds },
+    status: 'ACTIVE',
+  })
+    .sort({ sortOrder: 1 })
+    .lean();
+
+  const variantByProductId = new Map<string, (typeof variantDocs)[number]>();
+  for (const variant of variantDocs) {
+    const pid = variant.productId.toString();
+    if (!variantByProductId.has(pid)) variantByProductId.set(pid, variant);
+  }
+
+  const variantIds = [...variantByProductId.values()].map((v) => v._id.toString());
+  if (!variantIds.length) return [];
+
+  const [quoteMap, listPriceMap, zone] = await Promise.all([
+    quoteVendorOffersBatch({
+      variantIds,
+      quantity: 1,
+      customerLng: input.lng,
+      customerLat: input.lat,
+    }),
+    batchVariantListPrices(variantDocs),
+    input.lng !== undefined && input.lat !== undefined
+      ? isCustomerInAllowedServiceArea(input.lng, input.lat)
+      : Promise.resolve({ allowed: true }),
+  ]);
+
+  if (!zone.allowed) return [];
+
+  let allowedVendorIds: Set<string> | null = null;
+  if (input.diet === 'veg' || input.diet === 'nonveg') {
+    const vendorIds = new Set<string>();
+    for (const comparison of quoteMap.values()) {
+      for (const v of comparison.vendors) vendorIds.add(v.vendorId);
+    }
+    if (vendorIds.size) {
+      const vendors = await VendorModel.find({ _id: { $in: [...vendorIds] } })
+        .select('_id dietType')
+        .lean();
+      allowedVendorIds = new Set(
+        vendors
+          .filter((v) => vendorMatchesDietFilter(v.dietType, input.diet!))
+          .map((v) => v._id.toString()),
+      );
+    }
+  }
+
+  const offers: ProductCardSummary[] = [];
+  for (const product of productList) {
+    if (
+      input.diet &&
+      !productMatchesDietFilter(product.dietType, input.diet, product.name?.en)
+    ) {
+      continue;
+    }
+    const variant = variantByProductId.get(product._id.toString());
+    if (!variant) continue;
+    const variantId = variant._id.toString();
+    const comparison = quoteMap.get(variantId) ?? emptyComparison();
+    const actualPrice = listPriceMap.get(variantId);
+    const imageUrl = product.images?.find((i) => i.isPrimary)?.url ?? product.images?.[0]?.url;
+    const unitLabel = variant.name?.en;
+    const resolvedDiet = resolveProductDietType({
+      dietType: product.dietType,
+      name: product.name?.en,
+    });
+
+    const vendors = [...comparison.vendors]
+      .filter((v) => !allowedVendorIds || allowedVendorIds.has(v.vendorId))
+      .sort((a, b) => a.finalUnitPrice - b.finalUnitPrice);
+    for (const quote of vendors) {
+      const price = productCardPriceFromQuote(quote, actualPrice);
+      offers.push({
+        productId: product._id.toString(),
+        name: product.name,
+        brand: product.brand,
+        imageUrl,
+        variantId,
+        recommendedVendorId: quote.vendorId,
+        vendorName: quote.vendorName,
+        actualPrice: price.actualPrice,
+        mrp: price.mrp,
+        sellingPrice: price.sellingPrice,
+        finalUnitPrice: price.finalUnitPrice,
+        displayPrice: price.displayPrice,
+        discountPercent: price.discountPercent,
+        vendorCount: 1,
+        nearestKm: quote.distanceKm,
+        deliveryMinutes: quote.deliveryEstimateMinutes,
+        rating: quote.rating,
+        labels: [],
+        unitLabel,
+        dietType: resolvedDiet,
+        serviceableAtLocation: true,
+      });
+      if (offers.length >= limit) return offers;
+    }
+  }
+
+  return offers;
 }
 
 export async function resolveProductOffer(input: {
@@ -432,6 +613,50 @@ export async function resolveCategoryBrowseSettings(): Promise<CategoryBrowseSet
   return { categories, productLimit, subcategoryLimit, defaultSubcategorySlugByParent };
 }
 
+export type ResolvedHomeVertical = HomeVertical & { resolvedHref: string; mobileHref: string };
+
+function mobileHrefForVertical(v: HomeVertical, webHref: string): string {
+  if (v.id === 'more') return '/(tabs)/categories';
+  if (v.categorySlug) return `/category/${v.categorySlug}`;
+  if (webHref === '/stores' || v.href === '/stores') return '/(tabs)/categories';
+  if (webHref.startsWith('/products')) return '/(tabs)/categories';
+  return webHref;
+}
+
+async function resolveHomeVerticalsForFeed(): Promise<ResolvedHomeVertical[]> {
+  const raw = (await getConfigValue<unknown>('home.verticals', [])) ?? [];
+  let verticals: HomeVertical[];
+  try {
+    verticals = parseHomeVerticals(raw);
+  } catch {
+    verticals = [];
+  }
+  const enabled = verticals.filter((v) => v.enabled).sort((a, b) => a.sortOrder - b.sortOrder);
+  const resolved: ResolvedHomeVertical[] = [];
+  for (const v of enabled) {
+    let resolvedHref = v.href;
+    if (v.categorySlug) {
+      const cat = await CategoryModel.findOne({ slug: v.categorySlug, isActive: true }).lean();
+      if (cat) {
+        resolvedHref = `/products?categoryId=${cat._id.toString()}`;
+      }
+    }
+    resolved.push({ ...v, resolvedHref, mobileHref: mobileHrefForVertical(v, resolvedHref) });
+  }
+  return resolved;
+}
+
+async function resolveHomeTopPicks(): Promise<HomeTopPick[]> {
+  const raw = (await getConfigValue<unknown>('home.topPicks', [])) ?? [];
+  try {
+    return parseHomeTopPicks(raw)
+      .filter((p) => p.enabled)
+      .sort((a, b) => a.sortOrder - b.sortOrder);
+  } catch {
+    return [];
+  }
+}
+
 export async function buildHomeFeed(lng?: number, lat?: number) {
   const sections =
     (await getConfigValue<
@@ -472,6 +697,16 @@ export async function buildHomeFeed(lng?: number, lat?: number) {
         ctaPath: '/products',
       });
       resolved.push({ ...section, data: hero });
+      continue;
+    }
+    if (section.type === 'top_picks') {
+      const picks = await resolveHomeTopPicks();
+      resolved.push({ ...section, data: { picks } });
+      continue;
+    }
+    if (section.type === 'vertical_shortcuts') {
+      const verticals = await resolveHomeVerticalsForFeed();
+      resolved.push({ ...section, data: { verticals } });
       continue;
     }
     if (section.type === 'category_shortcuts') {
@@ -522,7 +757,8 @@ export async function buildHomeFeed(lng?: number, lat?: number) {
     }
     if (section.type === 'vendor_row') {
       const maxRadius = await getConfigValue<number>('vendor.search.maxRadiusKm', 25);
-      const vendors = await VendorModel.find({ status: 'ACTIVE' }).limit(8).lean();
+      const limit = Number(section.config?.limit ?? 8);
+      const vendors = await VendorModel.find({ status: 'ACTIVE' }).limit(limit).lean();
       const withDistance = vendors.map((v) => {
         let distanceKm: number | undefined;
         if (lng !== undefined && lat !== undefined && v.location?.coordinates) {
@@ -535,10 +771,18 @@ export async function buildHomeFeed(lng?: number, lat?: number) {
           rating: v.rating,
           ratingCount: v.ratingCount,
           distanceKm,
+          deliveryEstimateMinutes: distanceKm != null ? Math.round(20 + distanceKm * 3) : 30,
           withinService: distanceKm === undefined || distanceKm <= maxRadius,
+          imageUrl: v.imageUrl || undefined,
+          cuisineTags: Array.isArray(v.cuisineTags) ? v.cuisineTags : [],
         };
       });
-      resolved.push({ ...section, data: { vendors: withDistance } });
+      const viewAllPath = (section.config?.viewAllPath as string) ?? '/restaurants';
+      const viewAllLabel = section.config?.viewAllLabel as { en: string; ta?: string } | string | undefined;
+      resolved.push({
+        ...section,
+        data: { vendors: withDistance, viewAllPath, viewAllLabel },
+      });
       continue;
     }
     if (section.type === 'promo_strip') {

@@ -1,4 +1,5 @@
 import { useQuery } from '@tanstack/react-query';
+import { Link } from 'react-router-dom';
 import { apiRequest } from '../api/client';
 
 type Dashboard = {
@@ -10,115 +11,146 @@ type Dashboard = {
   pendingOrders: number;
   cancelledOrders: number;
   lowStock: number;
-  recentOrders: Array<{ orderNumber: string; grandTotal: number; status: string }>;
+  recentOrders: Array<{ orderNumber: string; grandTotal: number; status: string; _id?: string }>;
 };
 
-const growth = [
-  ['Total Revenue', 'revenue', '+12%'],
-  ['Orders', 'orders', '+8%'],
-  ['Customers', 'customers', '+15%'],
-  ['Vendors', 'vendors', '+2%'],
-] as const;
+function money(n: number) {
+  return `₹${Math.round(n).toLocaleString('en-IN')}`;
+}
+
+function statusClass(status: string) {
+  if (status === 'DELIVERED') return 'success';
+  if (status === 'CANCELLED' || status === 'FAILED') return 'danger';
+  if (status === 'OUT_FOR_DELIVERY' || status === 'PROCESSING') return 'info';
+  return 'warn';
+}
 
 export function DashboardPage() {
-  const { data, isLoading, error } = useQuery({
+  const { data, isLoading, error, refetch, isFetching } = useQuery({
     queryKey: ['dashboard'],
     queryFn: () => apiRequest<Dashboard>('/reports/dashboard'),
+    refetchInterval: 30_000,
   });
 
-  if (isLoading) return <p>Loading dashboard…</p>;
-  if (error) return <p className="error">{(error as Error).message}</p>;
+  if (isLoading) return <p className="muted">Loading dashboard…</p>;
+  if (error) {
+    return (
+      <div className="panel">
+        <p className="error">{(error as Error).message}</p>
+        <button type="button" onClick={() => refetch()}>
+          Retry
+        </button>
+      </div>
+    );
+  }
+
+  const metrics = [
+    { label: 'Revenue', value: money(data?.revenue ?? 0), hint: 'Completed order value' },
+    { label: 'Orders', value: (data?.orders ?? 0).toLocaleString('en-IN'), hint: 'All time' },
+    { label: 'Customers', value: (data?.customers ?? 0).toLocaleString('en-IN'), hint: 'Registered accounts' },
+    { label: 'Vendors', value: (data?.vendors ?? 0).toLocaleString('en-IN'), hint: 'Shops on platform' },
+  ] as const;
 
   return (
     <div>
       <div className="admin-page-head">
-        <h1 style={{ margin: 0 }}>Dashboard</h1>
-        <span className="admin-date-range">1 Apr 2025 – 12 Apr 2025</span>
+        <div>
+          <h1>Dashboard</h1>
+          <p className="page-lead">Live overview of customer orders, shops, and catalog health.</p>
+        </div>
+        <button type="button" className="secondary" onClick={() => refetch()} disabled={isFetching}>
+          {isFetching ? 'Refreshing…' : 'Refresh'}
+        </button>
       </div>
 
       <div className="metric-grid metric-grid-4">
-        {growth.map(([label, key, delta]) => (
-          <div key={key} className="metric-card">
-            <div style={{ color: 'var(--fm-muted)' }}>{label}</div>
-            <strong>
-              {key === 'revenue'
-                ? `₹${(data?.revenue ?? 0).toLocaleString('en-IN')}`
-                : (data?.[key] ?? 0).toLocaleString('en-IN')}
-            </strong>
-            <span className="metric-delta">{delta}</span>
+        {metrics.map((m) => (
+          <div key={m.label} className="metric-card">
+            <div className="metric-label">{m.label}</div>
+            <strong>{m.value}</strong>
+            <div className="metric-hint">{m.hint}</div>
           </div>
         ))}
       </div>
 
-      <div className="dashboard-charts">
-        <div className="panel">
-          <h3 style={{ marginTop: 0 }}>Sales overview</h3>
-          <div className="chart-line">
-            {[40, 65, 52, 78, 60, 88, 72, 95, 70, 82, 76, 90].map((h, i) => (
-              <span key={i} style={{ height: `${h}%` }} title={`Apr ${i + 1}`} />
-            ))}
+      <div className="dashboard-grid">
+        <div className="panel" style={{ marginTop: 0 }}>
+          <div className="admin-page-head" style={{ marginBottom: '0.75rem' }}>
+            <h3 style={{ margin: 0 }}>Recent orders</h3>
+            <Link to="/orders">View all</Link>
           </div>
-          <div className="chart-legend">
-            <span>This period</span>
-            <span className="muted">Last period</span>
-          </div>
-        </div>
-        <div className="panel">
-          <h3 style={{ marginTop: 0 }}>Order overview</h3>
-          <div className="chart-bars grouped">
-            {[40, 65, 52, 78, 60, 88, 72].map((h, i) => (
-              <div key={i} className="bar-group">
-                <span style={{ height: `${h}%` }} />
-                <span style={{ height: `${Math.max(20, h - 15)}%` }} className="muted-bar" />
-              </div>
-            ))}
-          </div>
-        </div>
-      </div>
-
-      <div className="dashboard-widgets">
-        <div className="panel panel-wide">
-          <h3 style={{ marginTop: 0 }}>Recent orders</h3>
-          <table>
-            <thead>
-              <tr>
-                <th>Order ID</th>
-                <th>Amount</th>
-                <th>Status</th>
-              </tr>
-            </thead>
-            <tbody>
-              {(data?.recentOrders ?? []).map((o) => (
-                <tr key={o.orderNumber}>
-                  <td>#{o.orderNumber}</td>
-                  <td>₹{o.grandTotal}</td>
-                  <td>
-                    <span className={`status-pill status-${o.status.toLowerCase()}`}>{o.status}</span>
-                  </td>
+          {(data?.recentOrders ?? []).length === 0 ? (
+            <div className="empty-state">No orders yet.</div>
+          ) : (
+            <table>
+              <thead>
+                <tr>
+                  <th>Order</th>
+                  <th>Amount</th>
+                  <th>Status</th>
                 </tr>
-              ))}
-            </tbody>
-          </table>
+              </thead>
+              <tbody>
+                {(data?.recentOrders ?? []).map((o) => (
+                  <tr key={o.orderNumber}>
+                    <td>
+                      {o._id ? (
+                        <Link to={`/orders/${o._id}`}>#{o.orderNumber}</Link>
+                      ) : (
+                        `#${o.orderNumber}`
+                      )}
+                    </td>
+                    <td>{money(o.grandTotal)}</td>
+                    <td>
+                      <span className={`status-pill ${statusClass(o.status)}`}>
+                        {o.status.replaceAll('_', ' ').toLowerCase()}
+                      </span>
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          )}
         </div>
-        <div className="panel">
-          <h3 style={{ marginTop: 0 }}>Quick summary</h3>
-          <p>
-            Pending orders: <strong className="warn">{data?.pendingOrders ?? 0}</strong>
-          </p>
-          <p>
-            Low stock SKUs: <strong>{data?.lowStock ?? 0}</strong>
-          </p>
-          <p>
-            Products live: <strong>{data?.products ?? 0}</strong>
-          </p>
-        </div>
-        <div className="panel">
-          <h3 style={{ marginTop: 0 }}>Top products</h3>
-          <ul className="simple-list">
-            {['Rice 5 KG', 'Sunflower Oil 1L', 'Milk 1L', 'Tomatoes 1 KG', 'Onions 1 KG'].map((name) => (
-              <li key={name}>{name}</li>
-            ))}
-          </ul>
+
+        <div style={{ display: 'grid', gap: '1rem', alignContent: 'start' }}>
+          <div className="panel" style={{ marginTop: 0 }}>
+            <h3 style={{ marginTop: 0 }}>Needs attention</h3>
+            <p>
+              Pending / active:{' '}
+              <strong className="warn">{data?.pendingOrders ?? 0}</strong>
+            </p>
+            <p>
+              Cancelled: <strong>{data?.cancelledOrders ?? 0}</strong>
+            </p>
+            <p>
+              Low stock mappings: <strong>{data?.lowStock ?? 0}</strong>
+            </p>
+            <p>
+              Products live: <strong>{data?.products ?? 0}</strong>
+            </p>
+          </div>
+
+          <div className="panel" style={{ marginTop: 0 }}>
+            <h3 style={{ marginTop: 0 }}>Quick actions</h3>
+            <div className="quick-links">
+              <Link to="/orders">
+                Manage orders <span>Ops</span>
+              </Link>
+              <Link to="/delivery-partners">
+                Delivery partners <span>Riders</span>
+              </Link>
+              <Link to="/vendor-partners">
+                Vendor accounts <span>Shops</span>
+              </Link>
+              <Link to="/customers">
+                Customers <span>People</span>
+              </Link>
+              <Link to="/home-top-picks">
+                Top picks <span>Home</span>
+              </Link>
+            </div>
+          </div>
         </div>
       </div>
     </div>

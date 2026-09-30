@@ -88,7 +88,7 @@ export function AppHeader({
               flexDirection: 'row',
               alignItems: 'center',
               gap: 6,
-              backgroundColor: theme.surface,
+              backgroundColor: theme.white,
               borderWidth: 1,
               borderColor: theme.border,
               borderRadius: radius.full,

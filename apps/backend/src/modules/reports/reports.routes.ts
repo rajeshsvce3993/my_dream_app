@@ -31,7 +31,11 @@ reportsRouter.get(
             },
           },
         ]),
-        OrderModel.find(orderFilter).sort({ createdAt: -1 }).limit(10).lean(),
+        OrderModel.find(orderFilter)
+          .sort({ createdAt: -1 })
+          .limit(10)
+          .select('_id orderNumber grandTotal status')
+          .lean(),
         Promise.all([
           CustomerModel.countDocuments(),
           VendorModel.countDocuments({ status: 'ACTIVE' }),

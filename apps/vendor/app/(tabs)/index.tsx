@@ -1,15 +1,25 @@
 import { useQuery } from '@tanstack/react-query';
-import { useEffect, useState } from 'react';
-import { ActivityIndicator, Pressable, ScrollView, Text, View } from 'react-native';
+import { router } from 'expo-router';
+import {
+  ActivityIndicator,
+  Pressable,
+  RefreshControl,
+  ScrollView,
+  StyleSheet,
+  Text,
+  View,
+} from 'react-native';
+import { Ionicons } from '@expo/vector-icons';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import { VendorLoginForm } from '../../components/VendorLoginForm';
-import { apiRequest, clearTokens, hasSession } from '../../lib/api';
-import { radius, spacing, theme } from '../../lib/theme';
+import { ScreenHeader } from '../../components/ScreenHeader';
+import { apiRequest } from '../../lib/api';
+import { money } from '../../lib/format';
+import { radius, shadow, spacing, theme } from '../../lib/theme';
 
 type Me = {
   approvalStatus: string;
   acceptingOrders: boolean;
-  vendor: { name: string; status: string } | null;
+  vendor: { id: string; name: string; code: string; status: string } | null;
   stats: {
     newOrders: number;
     activeOrders: number;
@@ -20,41 +30,6 @@ type Me = {
 };
 
 export default function HomeScreen() {
-  const [sessionReady, setSessionReady] = useState(false);
-  const [signedIn, setSignedIn] = useState(false);
-
-  useEffect(() => {
-    let mounted = true;
-    hasSession()
-      .then((ok) => {
-        if (!mounted) return;
-        setSignedIn(ok);
-        setSessionReady(true);
-      })
-      .catch(() => {
-        if (!mounted) return;
-        setSignedIn(false);
-        setSessionReady(true);
-      });
-    return () => {
-      mounted = false;
-    };
-  }, []);
-
-  if (!sessionReady) {
-    return (
-      <View style={{ flex: 1, justifyContent: 'center', backgroundColor: theme.bg }}>
-        <ActivityIndicator color={theme.primary} />
-      </View>
-    );
-  }
-
-  if (!signedIn) return <VendorLoginForm onSignedIn={() => setSignedIn(true)} />;
-
-  return <SignedInVendorHome onSignedOut={() => setSignedIn(false)} />;
-}
-
-function SignedInVendorHome({ onSignedOut }: { onSignedOut: () => void }) {
   const insets = useSafeAreaInsets();
   const me = useQuery({
     queryKey: ['vendor-me'],
@@ -62,75 +37,186 @@ function SignedInVendorHome({ onSignedOut }: { onSignedOut: () => void }) {
     refetchInterval: 8000,
   });
 
-  if (me.isLoading) {
+  const data = me.data;
+  const shopOpen = Boolean(data?.acceptingOrders && data?.vendor?.status === 'ACTIVE');
+  const approved = data?.approvalStatus === 'APPROVED';
+
+  if (me.isLoading && !data) {
     return (
-      <View style={{ flex: 1, justifyContent: 'center' }}>
+      <View style={styles.center}>
         <ActivityIndicator color={theme.primary} />
       </View>
     );
   }
 
-  if (me.isError || !me.data) {
+  if (me.isError && !data) {
     return (
-      <View style={{ flex: 1, justifyContent: 'center', padding: spacing.xl }}>
-        <Text>{(me.error as Error)?.message ?? 'Could not load shop'}</Text>
-        <Pressable onPress={() => me.refetch()}>
-          <Text style={{ color: theme.primary, marginTop: spacing.md }}>Retry</Text>
+      <View style={[styles.center, { padding: spacing.xl }]}>
+        <Ionicons name="cloud-offline-outline" size={36} color={theme.muted} />
+        <Text style={styles.errorTitle}>{(me.error as Error).message || 'Could not load shop'}</Text>
+        <Pressable onPress={() => me.refetch()} style={styles.retryBtn}>
+          <Text style={styles.retryText}>Try again</Text>
         </Pressable>
       </View>
     );
   }
 
-  const data = me.data;
-  const shopOpen = data.acceptingOrders && data.vendor?.status === 'ACTIVE';
-
   return (
-    <ScrollView
-      style={{ flex: 1, backgroundColor: theme.bg }}
-      contentContainerStyle={{ paddingTop: insets.top + spacing.lg, padding: spacing.lg, paddingBottom: 32 }}
-    >
-      <Text style={{ fontSize: 24, fontWeight: '800' }}>{data.vendor?.name ?? 'My shop'}</Text>
-      <Text style={{ color: theme.muted, marginTop: 4 }}>
-        {shopOpen ? '● Open for orders' : '○ Not accepting orders'} · {data.approvalStatus}
-      </Text>
+    <View style={styles.root}>
+      <ScreenHeader
+        title={data?.vendor?.name ?? 'My shop'}
+        subtitle={data?.vendor?.code ? `Code ${data.vendor.code}` : 'Dream Vendor'}
+        statusOpen={shopOpen}
+        statusLabel={shopOpen ? 'Open' : 'Closed'}
+      />
 
-      <View style={card}>
-        <Text style={{ fontWeight: '700', color: theme.muted }}>Today</Text>
-        <Text style={{ fontSize: 22, fontWeight: '800', marginTop: 8 }}>₹{Math.round(data.stats.todayEarnings)} earnings</Text>
-        <Text style={{ color: theme.muted, marginTop: 4 }}>
-          {data.stats.todayOrderCount} orders · ₹{Math.round(data.stats.todaySales)} sales
-        </Text>
-      </View>
-
-      <View style={{ flexDirection: 'row', gap: spacing.md }}>
-        <View style={[card, { flex: 1, marginTop: 0 }]}>
-          <Text style={{ color: theme.muted, fontWeight: '700' }}>New</Text>
-          <Text style={{ fontSize: 28, fontWeight: '800' }}>{data.stats.newOrders}</Text>
-        </View>
-        <View style={[card, { flex: 1, marginTop: 0 }]}>
-          <Text style={{ color: theme.muted, fontWeight: '700' }}>Active</Text>
-          <Text style={{ fontSize: 28, fontWeight: '800' }}>{data.stats.activeOrders}</Text>
-        </View>
-      </View>
-
-      <Pressable
-        onPress={async () => {
-          await clearTokens();
-          onSignedOut();
-        }}
-        style={{ marginTop: spacing.xl, alignItems: 'center' }}
+      <ScrollView
+        contentContainerStyle={{ padding: spacing.lg, paddingBottom: insets.bottom + 32, gap: spacing.md }}
+        refreshControl={
+          <RefreshControl refreshing={me.isFetching && !me.isLoading} onRefresh={() => me.refetch()} />
+        }
       >
-        <Text style={{ color: theme.muted }}>Sign out</Text>
-      </Pressable>
-    </ScrollView>
+        {!approved ? (
+          <View style={[styles.card, styles.warningCard]}>
+            <View style={styles.row}>
+              <Ionicons name="shield-outline" size={20} color={theme.warning} />
+              <Text style={styles.cardTitle}>Account pending</Text>
+            </View>
+            <Text style={styles.bodyMuted}>
+              Admin still needs to approve this vendor staff account before you can accept orders.
+            </Text>
+          </View>
+        ) : null}
+
+        <View style={styles.hero}>
+          <Text style={styles.heroLabel}>Today’s earnings</Text>
+          <Text style={styles.heroValue}>{money(data?.stats.todayEarnings ?? 0)}</Text>
+          <Text style={styles.heroMeta}>
+            {data?.stats.todayOrderCount ?? 0} orders · {money(data?.stats.todaySales ?? 0)} sales
+          </Text>
+        </View>
+
+        <View style={styles.statRow}>
+          <Pressable style={styles.statCard} onPress={() => router.push('/(tabs)/orders')}>
+            <Text style={styles.statLabel}>New</Text>
+            <Text style={styles.statValue}>{data?.stats.newOrders ?? 0}</Text>
+            <Text style={styles.statHint}>Tap to review</Text>
+          </Pressable>
+          <Pressable style={styles.statCard} onPress={() => router.push('/(tabs)/orders')}>
+            <Text style={styles.statLabel}>Active</Text>
+            <Text style={styles.statValue}>{data?.stats.activeOrders ?? 0}</Text>
+            <Text style={styles.statHint}>In kitchen</Text>
+          </Pressable>
+        </View>
+
+        <Pressable style={styles.linkCard} onPress={() => router.push('/(tabs)/products')}>
+          <View style={styles.linkIcon}>
+            <Ionicons name="cube-outline" size={18} color={theme.delivery} />
+          </View>
+          <View style={{ flex: 1 }}>
+            <Text style={styles.linkTitle}>Manage products</Text>
+            <Text style={styles.bodyMuted}>Update prices and availability</Text>
+          </View>
+          <Ionicons name="chevron-forward" size={18} color={theme.muted} />
+        </Pressable>
+
+        <Pressable style={styles.linkCard} onPress={() => router.push('/(tabs)/earnings')}>
+          <View style={styles.linkIcon}>
+            <Ionicons name="wallet-outline" size={18} color={theme.delivery} />
+          </View>
+          <View style={{ flex: 1 }}>
+            <Text style={styles.linkTitle}>View earnings</Text>
+            <Text style={styles.bodyMuted}>Week, month, and all-time payouts</Text>
+          </View>
+          <Ionicons name="chevron-forward" size={18} color={theme.muted} />
+        </Pressable>
+      </ScrollView>
+    </View>
   );
 }
 
-const card = {
-  backgroundColor: theme.surface,
-  borderRadius: radius.md,
-  padding: spacing.lg,
-  marginTop: spacing.lg,
-  borderWidth: 1,
-  borderColor: theme.border,
-};
+const styles = StyleSheet.create({
+  root: { flex: 1, backgroundColor: theme.bg },
+  center: { flex: 1, justifyContent: 'center', alignItems: 'center', backgroundColor: theme.bg },
+  hero: {
+    backgroundColor: theme.headerBg,
+    borderRadius: radius.lg,
+    padding: spacing.xl,
+    ...shadow.card,
+  },
+  heroLabel: {
+    fontSize: 12,
+    fontWeight: '700',
+    color: theme.onHeaderMuted,
+    letterSpacing: 0.4,
+    textTransform: 'uppercase',
+  },
+  heroValue: {
+    marginTop: 8,
+    fontSize: 36,
+    fontWeight: '900',
+    color: theme.onHeader,
+    letterSpacing: -1,
+  },
+  heroMeta: { marginTop: spacing.sm, color: theme.onHeaderMuted, fontSize: 13, fontWeight: '600' },
+  statRow: { flexDirection: 'row', gap: spacing.md },
+  statCard: {
+    flex: 1,
+    backgroundColor: theme.white,
+    borderRadius: radius.md,
+    padding: spacing.lg,
+    borderWidth: 1,
+    borderColor: theme.border,
+    ...shadow.card,
+  },
+  statLabel: { fontSize: 12, fontWeight: '700', color: theme.muted, textTransform: 'uppercase' },
+  statValue: { marginTop: 6, fontSize: 28, fontWeight: '900', color: theme.text },
+  statHint: { marginTop: 4, fontSize: 12, color: theme.delivery, fontWeight: '600' },
+  linkCard: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 12,
+    backgroundColor: theme.white,
+    borderRadius: radius.md,
+    padding: spacing.lg,
+    borderWidth: 1,
+    borderColor: theme.border,
+    ...shadow.card,
+  },
+  linkIcon: {
+    width: 40,
+    height: 40,
+    borderRadius: 12,
+    backgroundColor: theme.primaryMuted,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  linkTitle: { fontSize: 15, fontWeight: '800', color: theme.text },
+  card: {
+    backgroundColor: theme.white,
+    borderRadius: radius.md,
+    padding: spacing.lg,
+    borderWidth: 1,
+    borderColor: theme.border,
+    ...shadow.card,
+  },
+  warningCard: { backgroundColor: theme.warningSoft, borderColor: '#E5D2B8' },
+  row: { flexDirection: 'row', alignItems: 'center', gap: 8, marginBottom: 8 },
+  cardTitle: { fontSize: 16, fontWeight: '800', color: theme.text },
+  bodyMuted: { fontSize: 13, lineHeight: 19, color: theme.muted },
+  errorTitle: {
+    marginTop: spacing.md,
+    fontWeight: '800',
+    fontSize: 16,
+    color: theme.text,
+    textAlign: 'center',
+  },
+  retryBtn: {
+    marginTop: spacing.lg,
+    paddingHorizontal: 18,
+    paddingVertical: 10,
+    borderRadius: radius.md,
+    backgroundColor: theme.primaryDark,
+  },
+  retryText: { color: theme.onPrimary, fontWeight: '800' },
+});

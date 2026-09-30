@@ -10,6 +10,7 @@ import { useCategoryBrowse } from '../lib/useCategoryBrowse';
 import { productGridMetrics } from '../lib/productGridLayout';
 import { theme, spacing, radius } from '../lib/theme';
 import { ProductGridCard } from './ProductGridCard';
+import { ProductMenuRow } from './ProductMenuRow';
 import type { ProductSummary } from './ProductCardHorizontal';
 import { categoryIcon, chipLabel, parentIdFromDoc, type CategoryDoc } from './categoryHierarchyUi';
 
@@ -29,6 +30,8 @@ type Props = {
   initialCategorySlug?: string;
   /** When set, products come from this vendor’s catalog (same category UI). */
   vendorId?: string;
+  /** Veg / Non-veg filter for restaurant menus. */
+  dietFilter?: 'all' | 'veg' | 'nonveg';
 };
 
 type VendorProductsPayload = {
@@ -49,13 +52,14 @@ export function CategoryHierarchyBrowser({
   initialCategoryId,
   initialCategorySlug,
   vendorId,
+  dietFilter = 'all',
 }: Props) {
   const location = useAppLocation();
   const [parentId, setParentId] = useState('');
   const [subId, setSubId] = useState('');
   const [initialApplied, setInitialApplied] = useState(false);
   const appliedSearchQuery = searchQueryProp ?? '';
-  const isGlobalSearch = appliedSearchQuery.trim().length >= 2;
+  const isGlobalSearch = appliedSearchQuery.trim().length >= 1;
 
   const browseQuery = useCategoryBrowse(!parentsProp?.length);
   const parents = parentsProp?.length ? parentsProp : (browseQuery.data?.categories ?? []);
@@ -170,19 +174,24 @@ export function CategoryHierarchyBrowser({
       location.lng,
       location.lat,
       productLimit,
+      dietFilter,
     ],
     queryFn: async () => {
       if (vendorId) {
         const qs = new URLSearchParams({
           page: '1',
-          limit: String(productLimit),
+          limit: String(Math.max(productLimit, 48)),
           lng: String(location.lng),
           lat: String(location.lat),
         });
+        // Restaurant menu: show all store products unless the user searches
         if (isGlobalSearch) qs.set('search', appliedSearchQuery.trim());
-        else if (subId) qs.set('categoryId', subId);
+        if (dietFilter === 'veg' || dietFilter === 'nonveg') qs.set('diet', dietFilter);
         const payload = await apiRequest<VendorProductsPayload>(`/vendors/${vendorId}/products?${qs}`);
-        return payload.products ?? [];
+        return (payload.products ?? []).map((p) => ({
+          ...p,
+          recommendedVendorId: p.recommendedVendorId ?? p.vendorId ?? vendorId,
+        }));
       }
 
       const qs = new URLSearchParams({
@@ -195,16 +204,12 @@ export function CategoryHierarchyBrowser({
       } else if (subId) {
         qs.set('categoryId', subId);
       }
+      if (dietFilter === 'veg' || dietFilter === 'nonveg') qs.set('diet', dietFilter);
       return apiRequest<ProductSummary[]>(`/catalog/product-summaries?${qs}`);
     },
-    enabled: isGlobalSearch || Boolean(subId),
+    enabled: vendorId ? true : isGlobalSearch || Boolean(subId),
     staleTime: 60_000,
   });
-
-  if (!parents.length && browseQuery.isLoading) {
-    return <ActivityIndicator color={theme.primary} style={{ marginTop: spacing.lg }} />;
-  }
-  if (!parents.length) return null;
 
   const screenW = Dimensions.get('window').width;
   const { gap: productGap, cardWidth } = productGridMetrics(screenW);
@@ -219,6 +224,88 @@ export function CategoryHierarchyBrowser({
     setSubId(id);
     onSearchReset?.();
   }
+
+  function renderProductGrid() {
+    if (products.isLoading) {
+      return <ActivityIndicator style={{ marginTop: spacing.lg }} color={theme.primary} />;
+    }
+
+    // Restaurant menu: food-app style list rows (not cramped 2-col cards)
+    if (vendorId) {
+      return (
+        <View
+          style={{
+            backgroundColor: theme.bg,
+            paddingTop: 0,
+            paddingBottom: spacing.xl * 2,
+            minHeight: 80,
+            gap: spacing.sm,
+          }}
+        >
+          {listing.map((p) => (
+            <ProductMenuRow
+              key={p.productId}
+              product={p}
+              currency={currency}
+              contextVendorId={vendorId}
+              onAdd={() => onAddProduct(p)}
+            />
+          ))}
+          {listing.length === 0 ? (
+            <Text style={{ textAlign: 'center', color: theme.muted, marginTop: spacing.lg, paddingHorizontal: spacing.lg, fontSize: 13 }}>
+              {isGlobalSearch
+                ? `No results for “${appliedSearchQuery.trim()}”.`
+                : dietFilter === 'veg' || dietFilter === 'nonveg'
+                  ? `No ${dietFilter === 'veg' ? 'veg' : 'non-veg'} items on this menu.`
+                  : 'No products at this restaurant yet.'}
+            </Text>
+          ) : null}
+        </View>
+      );
+    }
+
+    return (
+      <View
+        style={{
+          flexDirection: 'row',
+          flexWrap: 'wrap',
+          columnGap: productGap,
+          rowGap: productGap,
+          paddingHorizontal: spacing.lg,
+          marginTop: spacing.md,
+          paddingBottom: spacing.xl,
+          minHeight: 120,
+        }}
+      >
+        {listing.map((p) => (
+          <ProductGridCard
+            key={p.productId}
+            product={p}
+            currency={currency}
+            width={cardWidth}
+            onAdd={() => onAddProduct(p)}
+          />
+        ))}
+        {listing.length === 0 ? (
+          <Text style={{ width: '100%', textAlign: 'center', color: theme.muted, marginTop: spacing.lg }}>
+            {isGlobalSearch
+              ? `No results for “${appliedSearchQuery.trim()}”.`
+              : `No products in ${activeSub?.name.en ?? 'this category'} yet.`}
+          </Text>
+        ) : null}
+      </View>
+    );
+  }
+
+  // Restaurant / vendor menu: show that store’s products directly (no category gate)
+  if (vendorId) {
+    return <View>{renderProductGrid()}</View>;
+  }
+
+  if (!parents.length && browseQuery.isLoading) {
+    return <ActivityIndicator color={theme.primary} style={{ marginTop: spacing.lg }} />;
+  }
+  if (!parents.length) return null;
 
   return (
     <View>
@@ -318,41 +405,7 @@ export function CategoryHierarchyBrowser({
         </ScrollView>
       )}
 
-      {products.isLoading ? (
-        <ActivityIndicator style={{ marginTop: spacing.lg }} color={theme.primary} />
-      ) : (
-        <View
-          style={{
-            flexDirection: 'row',
-            flexWrap: 'wrap',
-            columnGap: productGap,
-            rowGap: productGap,
-            paddingHorizontal: spacing.lg,
-            marginTop: spacing.md,
-            paddingBottom: spacing.xl,
-            minHeight: 120,
-          }}
-        >
-          {listing.map((p) => (
-            <ProductGridCard
-              key={p.productId}
-              product={p}
-              currency={currency}
-              width={cardWidth}
-              onAdd={() => onAddProduct(p)}
-            />
-          ))}
-          {listing.length === 0 && !products.isLoading ? (
-            <Text style={{ width: '100%', textAlign: 'center', color: theme.muted, marginTop: spacing.lg }}>
-              {isGlobalSearch
-                ? `No results for “${appliedSearchQuery.trim()}”.`
-                : vendorId
-                  ? `No products in ${activeSub?.name.en ?? 'this category'} at this store.`
-                  : `No products in ${activeSub?.name.en ?? 'this category'} yet.`}
-            </Text>
-          ) : null}
-        </View>
-      )}
+      {renderProductGrid()}
     </View>
   );
 }

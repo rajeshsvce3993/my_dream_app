@@ -28,6 +28,7 @@ export type AddToCartFlowResult = {
   vendors: AddToCartFlowVendor[];
   recommendedVendorId: string | null;
   showVendorCompare: boolean;
+  compareMode?: 'cheaper' | 'choose';
   autoVendorId: string | null;
   referenceVendor?: AddToCartFlowVendor;
   canDeferAvailability: boolean;

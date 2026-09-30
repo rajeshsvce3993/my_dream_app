@@ -3,9 +3,9 @@ import type { AppLocation } from './location';
 import { fetchStoresAvailability } from './useStoresAvailability';
 import { isStoresTabBlocked, showStoresTabUnavailableAlert } from './storesTabAlerts';
 
-const STORES_TAB_HREF = '/(tabs)/categories' as Href;
+const STORES_TAB_HREF = '/restaurants' as Href;
 
-/** Stores menu root — alert in place when blocked; do not open the Stores tab. */
+/** Restaurant list — alert in place when blocked; opens with back navigation. */
 export async function openStoresMenuOrAlert(
   location: Pick<AppLocation, 'lng' | 'lat'>,
 ): Promise<boolean> {

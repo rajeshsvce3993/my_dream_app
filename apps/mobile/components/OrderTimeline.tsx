@@ -1,5 +1,6 @@
 import { Text, View } from 'react-native';
-import { theme } from '../lib/theme';
+import { Ionicons } from '@expo/vector-icons';
+import { theme, spacing } from '../lib/theme';
 
 const FLOW = [
   'PENDING_PAYMENT',
@@ -14,9 +15,9 @@ const FLOW = [
 const LABELS: Record<string, string> = {
   PENDING_PAYMENT: 'Order placed',
   PAID: 'Payment confirmed',
-  CONFIRMED: 'Vendor confirmed',
+  CONFIRMED: 'Restaurant confirmed',
   PROCESSING: 'Preparing',
-  PACKED: 'Packed',
+  PACKED: 'Ready for pickup',
   OUT_FOR_DELIVERY: 'Out for delivery',
   DELIVERED: 'Delivered',
 };
@@ -27,41 +28,84 @@ type Props = {
 };
 
 export function OrderTimeline({ current, timeline }: Props) {
-  const currentIdx = FLOW.indexOf(current as (typeof FLOW)[number]);
+  const currentIdx = Math.max(0, FLOW.indexOf(current as (typeof FLOW)[number]));
 
   return (
-    <View style={{ gap: 0 }}>
+    <View>
       {FLOW.map((status, idx) => {
         const done = idx <= currentIdx;
-        const isCurrent = status === current;
+        const isCurrent = idx === currentIdx;
+        const isLast = idx === FLOW.length - 1;
         const entry = timeline.find((t) => t.status === status);
+        const lineDone = idx < currentIdx;
+
         return (
-          <View key={status} style={{ flexDirection: 'row', gap: 12, paddingVertical: 10 }}>
-            <View
-              style={{
-                width: 28,
-                height: 28,
-                borderRadius: 14,
-                backgroundColor: done ? theme.primary : theme.border,
-                alignItems: 'center',
-                justifyContent: 'center',
-                marginTop: 2,
-              }}
-            >
-              {done ? <Text style={{ color: 'white', fontSize: 12, fontWeight: '700' }}>✓</Text> : null}
+          <View key={status} style={{ flexDirection: 'row', gap: 12 }}>
+            <View style={{ width: 22, alignItems: 'center' }}>
+              <View
+                style={{
+                  width: 22,
+                  height: 22,
+                  borderRadius: 11,
+                  borderWidth: isCurrent ? 2 : 0,
+                  borderColor: theme.bannerBg,
+                  backgroundColor: done
+                    ? isCurrent
+                      ? theme.white
+                      : theme.bannerBg
+                    : theme.neutralSoft,
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                }}
+              >
+                {done && !isCurrent ? (
+                  <Ionicons name="checkmark" size={12} color={theme.white} />
+                ) : (
+                  <View
+                    style={{
+                      width: 8,
+                      height: 8,
+                      borderRadius: 4,
+                      backgroundColor: isCurrent ? theme.bannerBg : done ? theme.bannerBg : theme.border,
+                    }}
+                  />
+                )}
+              </View>
+              {!isLast ? (
+                <View
+                  style={{
+                    width: 2,
+                    flex: 1,
+                    minHeight: 28,
+                    backgroundColor: lineDone ? theme.bannerBg : theme.border,
+                    marginVertical: 2,
+                  }}
+                />
+              ) : null}
             </View>
-            <View style={{ flex: 1, opacity: done || isCurrent ? 1 : 0.45 }}>
-              <Text style={{ fontWeight: isCurrent ? '700' : '600', color: theme.secondary }}>
-                {LABELS[status] ?? status}
+
+            <View style={{ flex: 1, paddingBottom: isLast ? 0 : spacing.md, paddingTop: 1 }}>
+              <Text
+                style={{
+                  fontWeight: isCurrent ? '800' : '600',
+                  fontSize: 13,
+                  color: done || isCurrent ? theme.text : theme.muted,
+                }}
+              >
+                {LABELS[status] ?? status.replaceAll('_', ' ')}
               </Text>
               {entry ? (
-                <Text style={{ color: theme.muted, fontSize: 12, marginTop: 2 }}>
+                <Text style={{ color: theme.muted, fontSize: 11, marginTop: 2 }}>
                   {new Date(entry.at).toLocaleString('en-IN', {
                     day: 'numeric',
                     month: 'short',
                     hour: 'numeric',
                     minute: '2-digit',
                   })}
+                </Text>
+              ) : isCurrent ? (
+                <Text style={{ color: theme.bannerBg, fontSize: 11, fontWeight: '600', marginTop: 2 }}>
+                  In progress
                 </Text>
               ) : null}
             </View>

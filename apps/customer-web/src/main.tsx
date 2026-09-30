@@ -5,6 +5,7 @@ import { BrowserRouter } from 'react-router-dom';
 import { App } from './App';
 import { LocaleProvider } from './context/LocaleContext';
 import { LocationProvider } from './context/LocationContext';
+import { AddToCartFlowProvider } from './components/AddToCartFlowProvider';
 import './styles.css';
 
 const queryClient = new QueryClient();
@@ -15,7 +16,9 @@ ReactDOM.createRoot(document.getElementById('root')!).render(
       <LocaleProvider>
         <LocationProvider>
           <BrowserRouter>
-            <App />
+            <AddToCartFlowProvider>
+              <App />
+            </AddToCartFlowProvider>
           </BrowserRouter>
         </LocationProvider>
       </LocaleProvider>

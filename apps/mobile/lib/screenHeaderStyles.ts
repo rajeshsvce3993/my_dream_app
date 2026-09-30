@@ -6,7 +6,7 @@ export const screenHeaderStyles = {
     paddingHorizontal: spacing.lg,
     paddingTop: spacing.xs,
     paddingBottom: spacing.xs,
-    backgroundColor: 'transparent' as const,
+    backgroundColor: theme.headerBg,
   },
   /** Standard inset for ScrollView content directly under a header */
   bodyPadding: {
@@ -42,7 +42,7 @@ export const screenHeaderStyles = {
   title: {
     fontSize: 18,
     fontWeight: '800' as const,
-    color: theme.primaryDark,
+    color: theme.onHeader,
     letterSpacing: -0.2,
   },
   titleCenter: {
@@ -53,9 +53,9 @@ export const screenHeaderStyles = {
     flex: 1,
   },
   backIconSize: 24,
-  backIconColor: theme.primaryDark,
+  backIconColor: theme.onHeader,
   dismissIconSize: 26,
-  dismissIconColor: theme.muted,
+  dismissIconColor: theme.onHeaderMuted,
   cartIconSize: 26,
-  cartIconColor: theme.primary,
+  cartIconColor: theme.onHeader,
 };

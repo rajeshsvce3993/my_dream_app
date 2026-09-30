@@ -93,6 +93,9 @@ export async function apiRequest<T>(path: string, init: RequestInit = {}): Promi
   try {
     json = (await response.json()) as ApiResponse<T>;
   } catch {
+    if (response.status === 429) {
+      throw new Error('Too many requests. Please wait a moment and try again.');
+    }
     throw new Error(`API returned invalid JSON (${response.status}). Is the backend running?`);
   }
   if (!json.success) throw new Error(json.error.message);

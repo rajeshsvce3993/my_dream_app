@@ -20,12 +20,14 @@ describe('resolveVendorPickDecision', () => {
   it('shows compare when browsing a store with a cheaper alternative', () => {
     const r = resolveVendorPickDecision({ vendors, contextVendorId: 'high', cheapestVendorId: 'cheap' });
     expect(r.showVendorCompare).toBe(true);
+    expect(r.mode).toBe('cheaper');
     expect(r.autoVendorId).toBe('high');
   });
 
-  it('direct add from catalog when cheapest is already best', () => {
+  it('shows restaurant picker from search / top picks when multiple stores offer it', () => {
     const r = resolveVendorPickDecision({ vendors, cheapestVendorId: 'cheap' });
-    expect(r.showVendorCompare).toBe(false);
+    expect(r.showVendorCompare).toBe(true);
+    expect(r.mode).toBe('choose');
     expect(r.autoVendorId).toBe('cheap');
   });
 

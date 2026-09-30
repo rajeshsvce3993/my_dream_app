@@ -4,6 +4,7 @@ import { validate } from '../../common/middleware/validate.js';
 import { successResponse } from '../../common/types/api.js';
 import { authenticate, requireAnyRole, requirePermissions } from '../auth/auth.middleware.js';
 import { ORDER_STATUSES } from '../orders/orderStateMachine.js';
+import { UserModel } from '../users/user.model.js';
 import { VendorModel } from './vendor.model.js';
 import { getVendorEarnings } from './vendorEarningsPortal.service.js';
 import {
@@ -30,6 +31,7 @@ vendorPortalRouter.get('/me', authenticate, requireAnyRole('VENDOR'), async (req
     const staff = await getVendorStaffByUserId(req.auth!.sub);
     const vendor = await VendorModel.findById(staff.vendorId).lean();
     const stats = await getVendorHomeStats(staff.vendorId.toString());
+    const user = await UserModel.findById(req.auth!.sub).select('firstName lastName email phone').lean();
     res.json(
       successResponse({
         approvalStatus: staff.approvalStatus,
@@ -38,6 +40,14 @@ vendorPortalRouter.get('/me', authenticate, requireAnyRole('VENDOR'), async (req
           ? { id: vendor._id, name: vendor.name, code: vendor.code, status: vendor.status }
           : null,
         stats,
+        profile: user
+          ? {
+              firstName: user.firstName,
+              lastName: user.lastName,
+              email: user.email,
+              phone: user.phone,
+            }
+          : null,
       }),
     );
   } catch (err) {

@@ -26,43 +26,36 @@ export function OrderPlacedCelebration({ orderNumber, visible }: Props) {
   if (!visible) return null;
 
   return (
-    <Animated.View
-      style={{
-        marginHorizontal: spacing.lg,
-        marginBottom: spacing.md,
-        opacity,
-        transform: [{ scale }],
-      }}
-    >
+    <Animated.View style={{ marginBottom: spacing.sm, opacity, transform: [{ scale }] }}>
       <View
         style={{
           flexDirection: 'row',
           alignItems: 'center',
-          gap: spacing.md,
-          backgroundColor: theme.successSoft,
-          borderRadius: radius.lg,
-          padding: spacing.lg,
+          gap: 10,
+          backgroundColor: theme.white,
+          borderRadius: radius.sm,
+          paddingVertical: 10,
+          paddingHorizontal: 12,
           borderWidth: 1,
           borderColor: theme.success,
         }}
       >
         <View
           style={{
-            width: 48,
-            height: 48,
-            borderRadius: 24,
+            width: 34,
+            height: 34,
+            borderRadius: 17,
             backgroundColor: theme.success,
             alignItems: 'center',
             justifyContent: 'center',
           }}
         >
-          <Ionicons name="checkmark" size={28} color="white" />
+          <Ionicons name="checkmark" size={18} color={theme.white} />
         </View>
         <View style={{ flex: 1 }}>
-          <Text style={{ fontWeight: '800', fontSize: 17, color: theme.text }}>Thank you!</Text>
-          <Text style={{ color: theme.muted, marginTop: 4, fontSize: 13 }}>
-            Order <Text style={{ fontWeight: '700', color: theme.primaryDark }}>#{orderNumber}</Text> is
-            confirmed.
+          <Text style={{ fontWeight: '800', fontSize: 13, color: theme.text }}>Order placed</Text>
+          <Text style={{ color: theme.muted, marginTop: 1, fontSize: 11 }}>
+            #{orderNumber} is confirmed
           </Text>
         </View>
       </View>

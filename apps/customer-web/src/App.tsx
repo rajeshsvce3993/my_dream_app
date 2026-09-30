@@ -1,4 +1,4 @@
-import { Route, Routes } from 'react-router-dom';
+import { Route, Routes, Navigate } from 'react-router-dom';
 import { ShopLayout } from './components/ShopLayout';
 import { HomePage } from './pages/HomePage';
 import { ProductListPage } from './pages/ProductListPage';
@@ -14,6 +14,7 @@ import { ProfilePage } from './pages/ProfilePage';
 import { StoresPage } from './pages/StoresPage';
 import { VendorStorePage } from './pages/VendorStorePage';
 import { VendorProductDetailPage } from './pages/VendorProductDetailPage';
+import { OffersPage } from './pages/OffersPage';
 
 export function App() {
   return (
@@ -21,8 +22,10 @@ export function App() {
       <Route element={<ShopLayout />}>
         <Route path="/" element={<HomePage />} />
         <Route path="/search" element={<SearchPage />} />
+        <Route path="/offers" element={<OffersPage />} />
         <Route path="/profile" element={<ProfilePage />} />
         <Route path="/stores" element={<StoresPage />} />
+        <Route path="/restaurants" element={<StoresPage />} />
         <Route path="/vendors/:vendorId" element={<VendorStorePage />} />
         <Route path="/vendors/:vendorId/products/:vendorProductId" element={<VendorProductDetailPage />} />
         <Route path="/products" element={<ProductListPage />} />
@@ -33,6 +36,7 @@ export function App() {
         <Route path="/orders/:id" element={<OrderDetailPage />} />
         <Route path="/login" element={<LoginPage />} />
         <Route path="/delivery-address" element={<DeliveryAddressPage />} />
+        <Route path="*" element={<Navigate to="/" replace />} />
       </Route>
     </Routes>
   );

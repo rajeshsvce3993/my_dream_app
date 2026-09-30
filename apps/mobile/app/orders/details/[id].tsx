@@ -1,6 +1,16 @@
 import { useQuery } from '@tanstack/react-query';
 import { useLocalSearchParams, router } from 'expo-router';
-import { ActivityIndicator, Image, Pressable, ScrollView, Text, View } from 'react-native';
+import {
+  ActivityIndicator,
+  Image,
+  Pressable,
+  ScrollView,
+  StyleSheet,
+  Text,
+  View,
+} from 'react-native';
+import { Ionicons } from '@expo/vector-icons';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { ScreenHeader } from '../../../components/ScreenHeader';
 import { apiRequest } from '../../../lib/api';
 import { formatMoney } from '../../../lib/format';
@@ -9,7 +19,7 @@ import {
   type CustomerOrderDetail,
   groupOrderItemsByVendor,
 } from '../../../lib/orderDetailTypes';
-import { theme, spacing, radius, shadow } from '../../../lib/theme';
+import { theme, spacing, radius } from '../../../lib/theme';
 import { screenHeaderStyles as h } from '../../../lib/screenHeaderStyles';
 
 function formatAddress(order: CustomerOrderDetail['order']) {
@@ -18,7 +28,29 @@ function formatAddress(order: CustomerOrderDetail['order']) {
   return parts.join(', ');
 }
 
+const STATUS_STYLE: Record<string, { label: string; color: string; bg: string }> = {
+  PENDING_PAYMENT: { label: 'Awaiting payment', color: theme.warning, bg: '#F5EBD8' },
+  PAID: { label: 'Paid', color: theme.success, bg: theme.successSoft },
+  CONFIRMED: { label: 'Confirmed', color: theme.success, bg: theme.successSoft },
+  PROCESSING: { label: 'Preparing', color: theme.bannerBg, bg: '#F0E4E6' },
+  PACKED: { label: 'Ready', color: theme.bannerBg, bg: '#F0E4E6' },
+  OUT_FOR_DELIVERY: { label: 'On the way', color: theme.delivery, bg: '#E4F0F2' },
+  DELIVERED: { label: 'Delivered', color: theme.success, bg: theme.successSoft },
+  CANCELLED: { label: 'Cancelled', color: theme.discount, bg: '#F5E0E0' },
+};
+
+function statusMeta(status: string) {
+  return (
+    STATUS_STYLE[status] ?? {
+      label: status.replaceAll('_', ' '),
+      color: theme.muted,
+      bg: theme.neutralSoft,
+    }
+  );
+}
+
 export default function OrderDetailsScreen() {
+  const insets = useSafeAreaInsets();
   const { id } = useLocalSearchParams<{ id: string }>();
 
   const detail = useQuery({
@@ -32,10 +64,10 @@ export default function OrderDetailsScreen() {
     return (
       <View style={{ flex: 1, backgroundColor: theme.bg }}>
         <ScreenHeader title="Order details" showBack layout="centered" />
-        <View style={{ ...h.bodyPadding }}>
-          <Text>Unable to load order.</Text>
-          <Pressable onPress={() => router.push('/login')}>
-            <Text style={{ color: theme.primary, marginTop: 8 }}>Sign in</Text>
+        <View style={{ ...h.bodyPadding, paddingTop: spacing.lg }}>
+          <Text style={{ fontWeight: '700', color: theme.text }}>Unable to load order</Text>
+          <Pressable onPress={() => router.push('/login')} style={{ marginTop: spacing.sm }}>
+            <Text style={{ color: theme.primary, fontWeight: '700' }}>Sign in</Text>
           </Pressable>
         </View>
       </View>
@@ -44,7 +76,7 @@ export default function OrderDetailsScreen() {
 
   if (detail.isLoading || !detail.data) {
     return (
-      <View style={{ flex: 1, justifyContent: 'center' }}>
+      <View style={{ flex: 1, justifyContent: 'center', backgroundColor: theme.bg }}>
         <ActivityIndicator color={theme.primary} />
       </View>
     );
@@ -57,148 +89,287 @@ export default function OrderDetailsScreen() {
     day: 'numeric',
     month: 'short',
     year: 'numeric',
-    hour: '2-digit',
+    hour: 'numeric',
     minute: '2-digit',
   });
+  const meta = statusMeta(order.status);
+  const canTrack = !['DELIVERED', 'CANCELLED'].includes(order.status);
+  const footerPad = Math.max(insets.bottom, 8) + spacing.md;
+  const deliveryFree = order.shippingTotal === 0;
 
   return (
     <View style={{ flex: 1, backgroundColor: theme.bg }}>
       <ScreenHeader title="Order details" showBack layout="centered" />
 
-      <ScrollView contentContainerStyle={{ ...h.bodyPadding, paddingBottom: spacing.xl }}>
-        <View
-          style={{
-            backgroundColor: theme.surface,
-            borderRadius: radius.md,
-            padding: spacing.lg,
-            marginBottom: spacing.md,
-            ...shadow.card,
-          }}
-        >
-          <Text style={{ fontWeight: '800', fontSize: 16 }}>#{order.orderNumber}</Text>
-          <Text style={{ color: theme.muted, marginTop: 4, fontSize: 13 }}>{placedAt}</Text>
-          <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 8, marginTop: spacing.sm }}>
-            <Text style={{ fontSize: 12, fontWeight: '700', color: theme.primary }}>
-              {order.status.replaceAll('_', ' ')}
-            </Text>
-            <Text style={{ fontSize: 12, color: theme.muted }}>·</Text>
-            <Text style={{ fontSize: 12, fontWeight: '600', color: theme.muted }}>
-              {order.paymentStatus.replaceAll('_', ' ')}
+      <ScrollView
+        showsVerticalScrollIndicator={false}
+        contentContainerStyle={{
+          paddingHorizontal: spacing.lg,
+          paddingTop: spacing.sm,
+          paddingBottom: canTrack ? 88 + footerPad : spacing.xl + insets.bottom,
+          gap: spacing.sm,
+        }}
+      >
+        {/* Summary */}
+        <View style={styles.card}>
+          <View style={{ flexDirection: 'row', alignItems: 'flex-start', gap: 10 }}>
+            <View
+              style={{
+                width: 40,
+                height: 40,
+                borderRadius: 10,
+                backgroundColor: theme.bannerBg,
+                alignItems: 'center',
+                justifyContent: 'center',
+              }}
+            >
+              <Ionicons name="receipt-outline" size={18} color={theme.white} />
+            </View>
+            <View style={{ flex: 1, minWidth: 0 }}>
+              <Text style={{ fontSize: 15, fontWeight: '800', color: theme.text, letterSpacing: -0.2 }}>
+                Order {order.orderNumber}
+              </Text>
+              <Text style={{ fontSize: 12, color: theme.muted, marginTop: 2 }}>{placedAt}</Text>
+              <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 6, marginTop: 8 }}>
+                <View
+                  style={{
+                    paddingHorizontal: 8,
+                    paddingVertical: 3,
+                    borderRadius: radius.full,
+                    backgroundColor: meta.bg,
+                  }}
+                >
+                  <Text style={{ fontSize: 11, fontWeight: '700', color: meta.color }}>{meta.label}</Text>
+                </View>
+                <View
+                  style={{
+                    paddingHorizontal: 8,
+                    paddingVertical: 3,
+                    borderRadius: radius.full,
+                    backgroundColor: theme.neutralSoft,
+                  }}
+                >
+                  <Text style={{ fontSize: 11, fontWeight: '600', color: theme.muted }}>
+                    {order.paymentStatus.replaceAll('_', ' ')}
+                  </Text>
+                </View>
+              </View>
+            </View>
+          </View>
+        </View>
+
+        {/* Delivery */}
+        <SectionLabel>Delivered to</SectionLabel>
+        <View style={styles.card}>
+          <View style={{ flexDirection: 'row', alignItems: 'flex-start', gap: 10 }}>
+            <Ionicons name="location-sharp" size={16} color={theme.primary} style={{ marginTop: 2 }} />
+            <Text style={{ flex: 1, fontSize: 12, color: theme.text, lineHeight: 18 }}>
+              {formatAddress(order)}
             </Text>
           </View>
         </View>
 
-        <Text style={{ fontWeight: '800', marginBottom: spacing.sm }}>By store</Text>
+        {/* By restaurant */}
+        <SectionLabel>Items</SectionLabel>
         {vendorGroups.map((group) => (
-          <View
-            key={group.vendorId}
-            style={{
-              backgroundColor: theme.surface,
-              borderRadius: radius.md,
-              padding: spacing.lg,
-              marginBottom: spacing.md,
-              borderWidth: 1,
-              borderColor: theme.border,
-            }}
-          >
-            <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'flex-start' }}>
-              <View style={{ flex: 1, paddingRight: spacing.sm }}>
-                <Text style={{ fontWeight: '800', fontSize: 15 }}>{group.vendorName}</Text>
-                <Text style={{ color: theme.muted, fontSize: 12, marginTop: 2 }}>
-                  {group.status.replaceAll('_', ' ')} · #{group.orderNumber}
-                </Text>
-              </View>
-              <Text style={{ fontWeight: '800', color: theme.primary }}>
-                {formatMoney(currency, group.subtotal + group.shippingFee)}
+          <View key={group.vendorId} style={{ gap: 6 }}>
+            <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6, paddingHorizontal: 2 }}>
+              <Ionicons name="storefront-outline" size={14} color={theme.primary} />
+              <Text style={{ flex: 1, fontSize: 12, fontWeight: '700', color: theme.text }} numberOfLines={1}>
+                {group.vendorName}
+              </Text>
+              <Text style={{ fontSize: 11, fontWeight: '600', color: theme.muted }}>
+                {statusMeta(group.status).label}
               </Text>
             </View>
 
-            {group.lines.map((line, idx) => (
-              <View
-                key={`${line.variantId}-${idx}`}
-                style={{
-                  flexDirection: 'row',
-                  alignItems: 'center',
-                  gap: spacing.md,
-                  marginTop: spacing.md,
-                  paddingTop: spacing.md,
-                  borderTopWidth: idx === 0 ? 0 : 1,
-                  borderTopColor: theme.border,
-                }}
-              >
-                {line.imageUrl ? (
-                  <Image source={{ uri: line.imageUrl }} style={{ width: 52, height: 52, borderRadius: 8 }} />
-                ) : (
-                  <View style={{ width: 52, height: 52, borderRadius: 8, backgroundColor: theme.border }} />
-                )}
-                <View style={{ flex: 1 }}>
-                  <Text style={{ fontWeight: '600', fontSize: 14 }} numberOfLines={2}>
-                    {text(line.productName, 'Product')}
-                  </Text>
-                  <Text style={{ color: theme.muted, fontSize: 12, marginTop: 2 }}>
-                    Qty {line.quantity} × {formatMoney(currency, line.unitPrice)}
+            <View style={[styles.card, { paddingVertical: 0, paddingHorizontal: 0, overflow: 'hidden' }]}>
+              {group.lines.map((line, idx) => (
+                <View
+                  key={`${line.variantId}-${idx}`}
+                  style={{
+                    flexDirection: 'row',
+                    alignItems: 'center',
+                    gap: 10,
+                    paddingVertical: 8,
+                    paddingHorizontal: 10,
+                    borderTopWidth: idx === 0 ? 0 : StyleSheet.hairlineWidth,
+                    borderTopColor: theme.border,
+                  }}
+                >
+                  <View
+                    style={{
+                      width: 40,
+                      height: 40,
+                      borderRadius: 6,
+                      backgroundColor: theme.neutralSoft,
+                      overflow: 'hidden',
+                    }}
+                  >
+                    {line.imageUrl ? (
+                      <Image
+                        source={{ uri: line.imageUrl }}
+                        style={{ width: '100%', height: '100%' }}
+                        resizeMode="cover"
+                      />
+                    ) : null}
+                  </View>
+                  <View style={{ flex: 1, minWidth: 0 }}>
+                    <Text style={{ fontWeight: '700', fontSize: 12, color: theme.text }} numberOfLines={2}>
+                      {text(line.productName, 'Product')}
+                    </Text>
+                    <Text style={{ color: theme.muted, fontSize: 11, marginTop: 1 }}>
+                      Qty {line.quantity} · {formatMoney(currency, line.unitPrice)}
+                    </Text>
+                  </View>
+                  <Text style={{ fontWeight: '800', fontSize: 12, color: theme.text }}>
+                    {formatMoney(currency, line.lineTotal)}
                   </Text>
                 </View>
-                <Text style={{ fontWeight: '700' }}>{formatMoney(currency, line.lineTotal)}</Text>
-              </View>
-            ))}
+              ))}
 
-            {group.shippingFee > 0 ? (
-              <Text style={{ color: theme.muted, fontSize: 12, marginTop: spacing.sm }}>
-                Delivery {formatMoney(currency, group.shippingFee)}
-              </Text>
-            ) : null}
+              {group.shippingFee > 0 ? (
+                <View
+                  style={{
+                    flexDirection: 'row',
+                    justifyContent: 'space-between',
+                    paddingHorizontal: 10,
+                    paddingVertical: 8,
+                    borderTopWidth: StyleSheet.hairlineWidth,
+                    borderTopColor: theme.border,
+                  }}
+                >
+                  <Text style={{ fontSize: 11, color: theme.muted }}>Delivery</Text>
+                  <Text style={{ fontSize: 11, fontWeight: '700', color: theme.text }}>
+                    {formatMoney(currency, group.shippingFee)}
+                  </Text>
+                </View>
+              ) : null}
+            </View>
           </View>
         ))}
 
-        <Text style={{ fontWeight: '800', marginTop: spacing.sm, marginBottom: spacing.sm }}>Delivery address</Text>
-        <Text style={{ color: theme.muted, lineHeight: 20, marginBottom: spacing.lg }}>{formatAddress(order)}</Text>
+        {/* Bill */}
+        <SectionLabel>Bill details</SectionLabel>
+        <View style={styles.card}>
+          <BillRow label="Item total" value={formatMoney(currency, order.subtotal)} />
+          {order.discountTotal > 0 ? (
+            <BillRow
+              label="Discount"
+              value={`−${formatMoney(currency, order.discountTotal)}`}
+              valueColor={theme.success}
+            />
+          ) : null}
+          {order.taxTotal > 0 ? (
+            <BillRow label="Taxes" value={formatMoney(currency, order.taxTotal)} />
+          ) : null}
+          <BillRow
+            label="Delivery fee"
+            value={deliveryFree ? 'FREE' : formatMoney(currency, order.shippingTotal)}
+            valueColor={deliveryFree ? theme.success : theme.text}
+          />
+          <View
+            style={{
+              height: StyleSheet.hairlineWidth,
+              backgroundColor: theme.border,
+              marginVertical: 8,
+            }}
+          />
+          <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' }}>
+            <Text style={{ fontWeight: '800', fontSize: 13, color: theme.text }}>Total paid</Text>
+            <Text style={{ fontWeight: '800', fontSize: 14, color: theme.text }}>
+              {formatMoney(currency, order.grandTotal)}
+            </Text>
+          </View>
+        </View>
+      </ScrollView>
 
+      {canTrack ? (
         <View
           style={{
-            backgroundColor: theme.surface,
-            borderRadius: radius.md,
-            padding: spacing.lg,
-            ...shadow.card,
+            position: 'absolute',
+            bottom: 0,
+            left: 0,
+            right: 0,
+            backgroundColor: theme.tabBarBg,
+            borderTopWidth: StyleSheet.hairlineWidth,
+            borderTopColor: theme.tabBarBorder,
+            paddingHorizontal: spacing.lg,
+            paddingTop: 8,
+            paddingBottom: footerPad,
           }}
         >
-          <Text style={{ fontWeight: '800', marginBottom: spacing.sm }}>Bill summary</Text>
-          <Row label="Subtotal" value={formatMoney(currency, order.subtotal)} />
-          {order.discountTotal > 0 ? (
-            <Row label="Discount" value={`−${formatMoney(currency, order.discountTotal)}`} valueColor={theme.primary} />
-          ) : null}
-          <Row label="Taxes" value={formatMoney(currency, order.taxTotal)} />
-          <Row label="Delivery" value={formatMoney(currency, order.shippingTotal)} />
-          <View style={{ height: 1, backgroundColor: theme.border, marginVertical: spacing.sm }} />
-          <Row label="Total paid" value={formatMoney(currency, order.grandTotal)} bold />
+          <Pressable
+            onPress={() => router.push({ pathname: '/orders/[id]', params: { id: String(id) } })}
+            style={{
+              flexDirection: 'row',
+              alignItems: 'center',
+              justifyContent: 'center',
+              gap: 6,
+              backgroundColor: theme.bannerBg,
+              paddingVertical: 13,
+              borderRadius: radius.sm,
+            }}
+          >
+            <Ionicons name="locate-outline" size={16} color={theme.white} />
+            <Text style={{ color: theme.white, fontWeight: '700', fontSize: 14 }}>Track order</Text>
+          </Pressable>
         </View>
-
-        <Pressable
-          onPress={() => router.push({ pathname: '/orders/[id]', params: { id: String(id) } })}
-          style={{ marginTop: spacing.lg, alignItems: 'center' }}
-        >
-          <Text style={{ color: theme.delivery, fontWeight: '700' }}>Track order →</Text>
-        </Pressable>
-      </ScrollView>
+      ) : null}
     </View>
   );
 }
 
-function Row({
+function SectionLabel({ children }: { children: string }) {
+  return (
+    <Text
+      style={{
+        fontSize: 11,
+        fontWeight: '800',
+        color: theme.muted,
+        letterSpacing: 0.4,
+        textTransform: 'uppercase',
+        marginTop: 4,
+        marginBottom: 2,
+        paddingHorizontal: 2,
+      }}
+    >
+      {children}
+    </Text>
+  );
+}
+
+function BillRow({
   label,
   value,
-  bold,
   valueColor,
 }: {
   label: string;
   value: string;
-  bold?: boolean;
   valueColor?: string;
 }) {
   return (
-    <View style={{ flexDirection: 'row', justifyContent: 'space-between', marginBottom: 6 }}>
-      <Text style={{ color: theme.muted, fontWeight: bold ? '800' : '500' }}>{label}</Text>
-      <Text style={{ fontWeight: bold ? '800' : '600', color: valueColor ?? theme.text }}>{value}</Text>
+    <View
+      style={{
+        flexDirection: 'row',
+        justifyContent: 'space-between',
+        alignItems: 'center',
+        paddingVertical: 3,
+      }}
+    >
+      <Text style={{ fontSize: 12, color: theme.muted }}>{label}</Text>
+      <Text style={{ fontSize: 12, fontWeight: '700', color: valueColor ?? theme.text }}>{value}</Text>
     </View>
   );
 }
+
+const styles = StyleSheet.create({
+  card: {
+    backgroundColor: theme.white,
+    borderRadius: radius.sm,
+    borderWidth: 1,
+    borderColor: theme.border,
+    paddingHorizontal: 12,
+    paddingVertical: 12,
+  },
+});

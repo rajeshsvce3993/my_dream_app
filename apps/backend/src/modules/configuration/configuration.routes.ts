@@ -15,6 +15,11 @@ import {
   DELIVERY_SERVICE_AREAS_KEY,
   validateDeliveryServiceAreasConfig,
 } from '../delivery/deliveryServiceAreas.service.js';
+import { parseHomeVerticals } from '../catalog/homeVerticals.types.js';
+import { parseHomeTopPicks } from '../catalog/homeTopPicks.types.js';
+
+const HOME_VERTICALS_KEY = 'home.verticals';
+const HOME_TOP_PICKS_KEY = 'home.topPicks';
 
 export const configurationRouter = Router();
 
@@ -74,6 +79,12 @@ configurationRouter.patch(
           res.json(successResponse(null, 'Configuration updated'));
           return;
         }
+      }
+      if (key === HOME_VERTICALS_KEY) {
+        value = parseHomeVerticals(req.body.value);
+      }
+      if (key === HOME_TOP_PICKS_KEY) {
+        value = parseHomeTopPicks(req.body.value);
       }
       if (key === DELIVERY_SERVICE_AREAS_KEY) {
         value = validateDeliveryServiceAreasConfig(req.body.value);

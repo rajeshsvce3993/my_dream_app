@@ -44,6 +44,15 @@ export function createApp() {
       max: env.RATE_LIMIT_MAX,
       standardHeaders: true,
       legacyHeaders: false,
+      handler: (_req, res) => {
+        res.status(429).json({
+          success: false,
+          error: {
+            code: 'RATE_LIMIT',
+            message: 'Too many requests. Please wait a moment and try again.',
+          },
+        });
+      },
     }),
   );
 

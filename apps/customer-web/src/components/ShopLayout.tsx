@@ -1,5 +1,5 @@
 import { NavLink, Outlet, useNavigate } from 'react-router-dom';
-import { Home, LayoutGrid, Search, ShoppingBag, User, MapPin, Heart } from 'lucide-react';
+import { Home, UtensilsCrossed, Search, ShoppingBag, User, MapPin, Tag } from 'lucide-react';
 import { useBrand } from '../hooks/useBrand';
 import { useLocale } from '../context/LocaleContext';
 import { cartItemCount, useCart } from '../hooks/useCart';
@@ -24,7 +24,7 @@ export function ShopLayout() {
         <button
           type="button"
           className="qc-location-btn"
-          onClick={() => navigate('/profile')}
+          onClick={() => navigate('/delivery-address')}
           aria-label="Delivery location"
         >
           <MapPin size={16} aria-hidden />
@@ -43,12 +43,12 @@ export function ShopLayout() {
           }}
         >
           <Search size={18} aria-hidden />
-          <input name="q" placeholder="Search products, brands…" aria-label="Search" />
+          <input name="q" placeholder="Search dishes, restaurants…" aria-label="Search" />
         </form>
 
         <nav className="qc-header-actions" aria-label="Account">
-          <NavLink to="/products" className="qc-icon-btn" aria-label="Wishlist">
-            <Heart size={20} />
+          <NavLink to="/offers" className="qc-icon-btn" aria-label="Offers">
+            <Tag size={20} />
           </NavLink>
           <NavLink to="/cart" className="qc-icon-btn qc-cart-btn" aria-label="Cart">
             <ShoppingBag size={20} />
@@ -78,13 +78,13 @@ export function ShopLayout() {
           <Home size={22} />
           <span>Home</span>
         </NavLink>
-        <NavLink to="/stores">
-          <LayoutGrid size={22} />
-          <span>Stores</span>
+        <NavLink to="/restaurants">
+          <UtensilsCrossed size={22} />
+          <span>Restaurants</span>
         </NavLink>
-        <NavLink to="/search">
-          <Search size={22} />
-          <span>Search</span>
+        <NavLink to="/offers">
+          <Tag size={22} />
+          <span>Offers</span>
         </NavLink>
         <NavLink to="/cart">
           <ShoppingBag size={22} />
@@ -93,7 +93,7 @@ export function ShopLayout() {
         </NavLink>
         <NavLink to="/profile">
           <User size={22} />
-          <span>Profile</span>
+          <span>Account</span>
         </NavLink>
       </nav>
     </div>

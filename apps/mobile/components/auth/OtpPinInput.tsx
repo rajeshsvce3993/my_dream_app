@@ -1,5 +1,10 @@
 import { useRef, useEffect } from 'react';
-import { Pressable, TextInput, View, type NativeSyntheticEvent, type TextInputKeyPressEventData } from 'react-native';
+import {
+  TextInput,
+  View,
+  type NativeSyntheticEvent,
+  type TextInputKeyPressEventData,
+} from 'react-native';
 import { theme, radius, spacing } from '../../lib/theme';
 
 type Props = {
@@ -44,59 +49,51 @@ export function OtpPinInput({ length, value, onChange, error, autoFocus }: Props
   }
 
   return (
-    <View style={{ flexDirection: 'row', justifyContent: 'center', gap: spacing.sm, marginTop: spacing.xl }}>
-      {Array.from({ length }).map((_, i) => (
-        <TextInput
-          key={i}
-          ref={(r) => {
-            refs.current[i] = r;
-          }}
-          value={digits[i]?.trim() ? digits[i] : ''}
-          onChangeText={(t) => updateAt(i, t)}
-          onKeyPress={(e) => onKeyPress(i, e)}
-          keyboardType="number-pad"
-          maxLength={length}
-          textContentType="oneTimeCode"
-          autoComplete="sms-otp"
-          selectTextOnFocus
-          accessibilityLabel={`OTP digit ${i + 1}`}
-          style={{
-            width: 52,
-            height: 56,
-            borderWidth: 2,
-            borderColor: error ? theme.discount : value.length === length ? theme.primary : theme.border,
-            borderRadius: radius.md,
-            textAlign: 'center',
-            fontSize: 22,
-            fontWeight: '800',
-            color: theme.text,
-            backgroundColor: theme.surface,
-          }}
-        />
-      ))}
+    <View
+      style={{
+        flexDirection: 'row',
+        justifyContent: 'center',
+        gap: spacing.sm,
+        marginTop: spacing.sm,
+      }}
+    >
+      {Array.from({ length }).map((_, i) => {
+        const filled = Boolean(digits[i]?.trim());
+        const borderColor = error
+          ? theme.discount
+          : filled
+            ? theme.delivery
+            : theme.border;
+        return (
+          <TextInput
+            key={i}
+            ref={(r) => {
+              refs.current[i] = r;
+            }}
+            value={digits[i]?.trim() ? digits[i] : ''}
+            onChangeText={(t) => updateAt(i, t)}
+            onKeyPress={(e) => onKeyPress(i, e)}
+            keyboardType="number-pad"
+            maxLength={length}
+            textContentType="oneTimeCode"
+            autoComplete="sms-otp"
+            selectTextOnFocus
+            accessibilityLabel={`OTP digit ${i + 1}`}
+            style={{
+              width: 54,
+              height: 58,
+              borderWidth: 1.5,
+              borderColor,
+              borderRadius: radius.md,
+              textAlign: 'center',
+              fontSize: 22,
+              fontWeight: '800',
+              color: theme.text,
+              backgroundColor: theme.white,
+            }}
+          />
+        );
+      })}
     </View>
-  );
-}
-
-/** Hidden input for full OTP paste on Android */
-export function OtpHiddenCapture({
-  onPaste,
-  length,
-}: {
-  onPaste: (otp: string) => void;
-  length: number;
-}) {
-  return (
-    <Pressable accessibilityRole="button" accessibilityLabel="Paste OTP">
-      <TextInput
-        style={{ position: 'absolute', opacity: 0, height: 0, width: 0 }}
-        keyboardType="number-pad"
-        textContentType="oneTimeCode"
-        onChangeText={(t) => {
-          const d = t.replace(/\D/g, '').slice(0, length);
-          if (d.length >= length) onPaste(d);
-        }}
-      />
-    </Pressable>
   );
 }

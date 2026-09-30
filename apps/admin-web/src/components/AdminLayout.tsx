@@ -1,47 +1,99 @@
+import { useQuery } from '@tanstack/react-query';
 import { NavLink, Outlet } from 'react-router-dom';
-import { clearTokens } from '../api/client';
+import { apiRequest, clearTokens } from '../api/client';
 
-const links = [
-  ['Dashboard', '/dashboard'],
-  ['Products', '/products'],
-  ['Categories', '/categories'],
-  ['Vendors', '/vendors'],
-  ['Vendor mapping', '/vendor-mapping'],
-  ['Pricing', '/pricing'],
-  ['Offers', '/offers'],
-  ['Coupons', '/coupons'],
-  ['Inventory', '/inventory'],
-  ['Orders', '/orders'],
-  ['Customers', '/customers'],
-  ['Payments', '/payments'],
-  ['Delivery', '/delivery'],
-  ['Delivery partners', '/delivery-partners'],
-  ['Vendor app accounts', '/vendor-partners'],
-  ['Notifications', '/notifications'],
-  ['Reports', '/reports'],
-  ['Roles & Permissions', '/roles'],
-  ['Audit Logs', '/audit-logs'],
-  ['Settings', '/settings'],
-  ['Configuration', '/configuration'],
+type Me = {
+  firstName?: string;
+  lastName?: string;
+  email?: string;
+  displayName?: string;
+  roles?: string[];
+};
+
+const NAV_GROUPS = [
+  {
+    label: 'Ops',
+    links: [
+      ['Dashboard', '/dashboard'],
+      ['Orders', '/orders'],
+      ['Delivery zones', '/delivery'],
+      ['Delivery partners', '/delivery-partners'],
+    ],
+  },
+  {
+    label: 'Catalog',
+    links: [
+      ['Products', '/products'],
+      ['Categories', '/categories'],
+      ['Vendors', '/vendors'],
+      ['Vendor mapping', '/vendor-mapping'],
+    ],
+  },
+  {
+    label: 'People',
+    links: [
+      ['Customers', '/customers'],
+      ['Vendor accounts', '/vendor-partners'],
+    ],
+  },
+  {
+    label: 'Experience',
+    links: [
+      ['Home verticals', '/home-verticals'],
+      ['Top picks', '/home-top-picks'],
+      ['Configuration', '/configuration'],
+    ],
+  },
 ] as const;
 
 export function AdminLayout() {
+  const me = useQuery({
+    queryKey: ['admin-me'],
+    queryFn: () => apiRequest<Me>('/auth/me'),
+    staleTime: 60_000,
+    retry: false,
+  });
+
+  const name =
+    me.data?.displayName?.trim() ||
+    [me.data?.firstName, me.data?.lastName].filter(Boolean).join(' ') ||
+    'Admin';
+  const initial = (name.trim()[0] ?? 'A').toUpperCase();
+  const role = me.data?.roles?.[0]?.replaceAll('_', ' ') ?? 'Administrator';
+
   return (
     <div className="layout">
       <aside className="sidebar">
-        <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-          <span style={{ fontSize: 20 }}>🌿</span>
-          <strong>FreshMart</strong>
+        <div className="sidebar-brand">
+          <div className="sidebar-mark">DF</div>
+          <div>
+            <strong>Dream Food</strong>
+            <small>Admin control</small>
+          </div>
         </div>
-        <nav>
-          {links.map(([label, path]) => (
-            <NavLink key={path} to={path} className={({ isActive }) => (isActive ? 'active' : undefined)}>
-              {label}
-            </NavLink>
+
+        <div className="sidebar-nav">
+          {NAV_GROUPS.map((group) => (
+            <div key={group.label}>
+              <div className="nav-group-label">{group.label}</div>
+              <div className="nav-group">
+                {group.links.map(([label, path]) => (
+                  <NavLink
+                    key={path}
+                    to={path}
+                    className={({ isActive }) => (isActive ? 'active' : undefined)}
+                  >
+                    {label}
+                  </NavLink>
+                ))}
+              </div>
+            </div>
           ))}
-        </nav>
+        </div>
+
         <button
-          style={{ marginTop: '2rem', width: '100%', background: '#334155' }}
+          type="button"
+          className="sidebar-signout"
           onClick={() => {
             clearTokens();
             window.location.href = '/login';
@@ -50,16 +102,25 @@ export function AdminLayout() {
           Sign out
         </button>
       </aside>
-      <main className="content">
+
+      <div className="content">
         <header className="admin-topbar">
-          <input className="admin-search" placeholder="Search admin…" aria-label="Search" />
+          <div>
+            <div className="admin-topbar-title">Marketplace control plane</div>
+            <div className="admin-topbar-sub">Customer · Vendor · Delivery</div>
+          </div>
           <div className="admin-profile">
-            <span className="admin-avatar">A</span>
-            Admin ▾
+            <div style={{ textAlign: 'right' }}>
+              <div>{name}</div>
+              <div className="admin-topbar-sub">{role}</div>
+            </div>
+            <span className="admin-avatar">{initial}</span>
           </div>
         </header>
-        <Outlet />
-      </main>
+        <main className="admin-main">
+          <Outlet />
+        </main>
+      </div>
     </div>
   );
 }

@@ -26,6 +26,23 @@ const createProductSchema = z.object({
   subcategoryId: z.string().optional(),
   brand: z.string().optional(),
   status: z.enum(['DRAFT', 'ACTIVE', 'INACTIVE']).optional(),
+  images: z
+    .array(
+      z.object({
+        url: z.string().min(1),
+        isPrimary: z.boolean().optional(),
+        sortOrder: z.number().optional(),
+      }),
+    )
+    .optional(),
+});
+
+const createVariantSchema = z.object({
+  sku: z.string().min(1),
+  name: localizedInput,
+  listPrice: z.number().min(0).optional(),
+  status: z.enum(['ACTIVE', 'INACTIVE']).optional(),
+  sortOrder: z.number().optional(),
 });
 
 productRouter.get('/', async (req, res, next) => {
@@ -130,6 +147,33 @@ productRouter.post(
   },
 );
 
+productRouter.post(
+  '/:id/variants',
+  authenticate,
+  requirePermissions('product.create'),
+  validate({
+    params: z.object({ id: z.string().min(1) }),
+    body: createVariantSchema,
+  }),
+  async (req, res, next) => {
+    try {
+      const product = await ProductModel.findById(req.params.id).lean();
+      if (!product) throw new NotFoundError('Product not found');
+      const created = await ProductVariantModel.create({
+        productId: product._id,
+        sku: req.body.sku,
+        name: req.body.name,
+        listPrice: req.body.listPrice,
+        status: req.body.status ?? 'ACTIVE',
+        sortOrder: req.body.sortOrder ?? 1,
+      });
+      res.status(201).json(successResponse(created));
+    } catch (err) {
+      next(err);
+    }
+  },
+);
+
 export const vendorProductRouter = Router();
 
 const vendorProductBodySchema = z.object({
@@ -213,6 +257,14 @@ vendorProductRouter.patch(
           { $set: { available: stock } },
           { upsert: true },
         );
+      }
+      if (
+        updates.mrp !== undefined ||
+        updates.sellingPrice !== undefined ||
+        updates.vendorPrice !== undefined
+      ) {
+        const { syncVariantListPriceFromVendors } = await import('./variantListPrice.service.js');
+        await syncVariantListPriceFromVendors(mapping.variantId.toString());
       }
       res.json(successResponse(mapping));
     } catch (err) {

@@ -14,11 +14,13 @@ import { catalogRouter } from '../modules/catalog/catalog.routes.js';
 import { deliveryRouter } from '../modules/delivery/delivery.routes.js';
 import { deliveryPersonRouter } from '../modules/delivery/deliveryPerson.routes.js';
 import { customerRouter } from '../modules/customers/customer.routes.js';
+import { customerAdminRouter } from '../modules/customers/customerAdmin.routes.js';
 
 export function createApiRouter(): Router {
   const router = Router();
 
   router.use('/auth', authRouter);
+  router.use('/customers', customerAdminRouter);
   router.use('/customers', customerRouter);
   router.use('/configuration', configurationRouter);
   router.use('/categories', categoryRouter);

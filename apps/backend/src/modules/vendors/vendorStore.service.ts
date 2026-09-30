@@ -23,6 +23,10 @@ import {
 } from '../catalog/productCardPricing.js';
 import { computeCustomerUnitPrice } from '../pricing/customerUnitPrice.js';
 import { getVariantListPrice } from '../products/variantListPrice.service.js';
+import {
+  productMatchesDietFilter,
+  resolveProductDietType,
+} from '../catalog/diet.util.js';
 
 export type CustomerVendorCard = {
   id: string;
@@ -37,6 +41,9 @@ export type CustomerVendorCard = {
   minimumOrderAmount: number;
   isOpen: boolean;
   productCount: number;
+  cuisineTags: string[];
+  dietType?: 'veg' | 'nonveg' | 'both';
+  imageUrl?: string;
   address?: {
     line1?: string;
     city?: string;
@@ -64,6 +71,7 @@ export type VendorStoreProductCard = {
   availableQuantity: number;
   inStock: boolean;
   deliveryEstimateMinutes?: number;
+  dietType?: 'veg' | 'nonveg';
 };
 
 export type VendorStoreProductDetail = VendorStoreProductCard & {
@@ -147,6 +155,7 @@ export async function listCustomerVendors(input: {
   page?: number;
   limit?: number;
   q?: string;
+  diet?: 'veg' | 'nonveg';
 }): Promise<{ items: CustomerVendorCard[]; total: number; location?: LocationAvailabilityInfo }> {
   const page = Math.max(1, input.page ?? 1);
   const limit = Math.min(50, Math.max(1, input.limit ?? 20));
@@ -165,11 +174,21 @@ export async function listCustomerVendors(input: {
   const freeDeliveryThreshold = await getConfigValue<number>('delivery.freeThreshold', 499);
   const minimumOrderAmount = await getConfigValue<number>('order.minValue', 100);
 
-  let vendors = await VendorModel.find({ status: 'ACTIVE' }).lean();
+  let vendors = await VendorModel.find({
+    status: 'ACTIVE',
+    // Legacy shops without KYC stay live; new shops must complete onboarding
+    onboardingComplete: { $ne: false },
+  }).lean();
   if (input.q?.trim()) {
     const term = input.q.trim();
     const re = new RegExp(term.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'), 'i');
     vendors = vendors.filter((v) => re.test(v.name) || re.test(v.code));
+  }
+  if (input.diet === 'veg' || input.diet === 'nonveg') {
+    vendors = vendors.filter((v) => {
+      const d = v.dietType === 'veg' || v.dietType === 'nonveg' || v.dietType === 'both' ? v.dietType : 'both';
+      return d === 'both' || d === input.diet;
+    });
   }
 
   const withMeta: CustomerVendorCard[] = [];
@@ -200,6 +219,9 @@ export async function listCustomerVendors(input: {
       minimumOrderAmount,
       isOpen: vendorIsOpen(v.operatingHours),
       productCount: activeMappings,
+      cuisineTags: Array.isArray(v.cuisineTags) ? v.cuisineTags : [],
+      dietType: v.dietType === 'veg' || v.dietType === 'nonveg' || v.dietType === 'both' ? v.dietType : 'both',
+      imageUrl: v.imageUrl || undefined,
       address: v.address,
     });
   }
@@ -265,6 +287,12 @@ export async function getCustomerVendor(
     minimumOrderAmount,
     isOpen: vendorIsOpen(vendor.operatingHours),
     productCount,
+    cuisineTags: Array.isArray(vendor.cuisineTags) ? vendor.cuisineTags : [],
+    dietType:
+      vendor.dietType === 'veg' || vendor.dietType === 'nonveg' || vendor.dietType === 'both'
+        ? vendor.dietType
+        : 'both',
+    imageUrl: vendor.imageUrl || undefined,
     address: vendor.address,
   };
 }
@@ -281,6 +309,7 @@ export type VendorProductListFilters = {
   sort?: string;
   lng?: number;
   lat?: number;
+  diet?: 'veg' | 'nonveg';
 };
 
 export async function listVendorStoreProducts(
@@ -328,14 +357,32 @@ export async function listVendorStoreProducts(
     if (filters.brand && product.brand?.toLowerCase() !== filters.brand.toLowerCase()) continue;
     if (filters.minPrice !== undefined && mapping.sellingPrice < filters.minPrice) continue;
     if (filters.maxPrice !== undefined && mapping.sellingPrice > filters.maxPrice) continue;
+    if (
+      (filters.diet === 'veg' || filters.diet === 'nonveg') &&
+      !productMatchesDietFilter(product.dietType, filters.diet, product.name?.en)
+    ) {
+      continue;
+    }
 
     if (filters.search?.trim()) {
-      const term = filters.search.trim().toLowerCase();
-      const hay = [product.name.en, product.name.ta, product.brand, product.sku, variant.name.en]
+      const terms = filters.search
+        .trim()
+        .toLowerCase()
+        .split(/\s+/)
+        .filter((t) => t.length >= 1);
+      const hay = [
+        product.name?.en,
+        product.name?.ta,
+        product.brand,
+        product.sku,
+        ...(product.searchKeywords ?? []),
+        variant.name?.en,
+      ]
         .filter(Boolean)
         .join(' ')
         .toLowerCase();
-      if (!hay.includes(term)) continue;
+      // Soft AND: every term must appear somewhere in the dish text
+      if (terms.length && !terms.every((t) => hay.includes(t))) continue;
     }
 
     const inv = inventoryMap.get(mapping.variantId.toString());
@@ -371,6 +418,7 @@ export async function listVendorStoreProducts(
       availableQuantity,
       inStock,
       deliveryEstimateMinutes,
+      dietType: resolveProductDietType({ dietType: product.dietType, name: product.name?.en }),
     });
   }
 

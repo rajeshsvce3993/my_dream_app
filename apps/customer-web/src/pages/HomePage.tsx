@@ -8,6 +8,9 @@ import { ErrorState } from '../design-system/ErrorState';
 import { HomeFeedSkeleton } from '../design-system/Skeleton';
 import { ProductCard, type ProductSummary } from '../design-system/ProductCard';
 import { SectionHeader } from '../design-system/SectionHeader';
+import { HomeVerticalsSection, type HomeVertical } from '../components/HomeVerticalsSection';
+import { HomeTopPicks, type TopPickItem } from '../components/HomeTopPicks';
+import { useQuickAddToCart } from '../lib/useQuickAddToCart';
 
 type HomeFeed = {
   greeting: { en: string; ta?: string };
@@ -23,6 +26,7 @@ type HomeFeed = {
 export function HomePage() {
   const { tName } = useLocale();
   const { location, query } = useLocationContext();
+  const quickAdd = useQuickAddToCart();
 
   const feed = useQuery({
     queryKey: ['home-feed', query.lng, query.lat],
@@ -54,18 +58,33 @@ export function HomePage() {
             ctaLabel: { en: string; ta?: string };
             ctaPath: string;
           };
+          const cta = hero.ctaPath?.includes('stores')
+            ? '/restaurants'
+            : hero.ctaPath || '/restaurants';
           return (
             <section key={section.id} className="qc-hero">
               <div className="qc-hero__content">
                 <Sparkles className="qc-hero__spark" size={22} aria-hidden />
                 <h1>{tName(hero.title)}</h1>
                 <p>{tName(hero.subtitle)}</p>
-                <Link to={hero.ctaPath} className="qc-btn qc-btn--accent">
+                <Link to={cta} className="qc-btn qc-btn--accent">
                   {tName(hero.ctaLabel)}
                 </Link>
               </div>
               <div className="qc-hero__glow" aria-hidden />
             </section>
+          );
+        }
+
+        if (section.type === 'top_picks') {
+          const picks = (section.data as { picks?: TopPickItem[] }).picks ?? [];
+          return <HomeTopPicks key={section.id} title={section.title} picks={picks} />;
+        }
+
+        if (section.type === 'vertical_shortcuts') {
+          const verticals = (section.data as { verticals: HomeVertical[] }).verticals ?? [];
+          return (
+            <HomeVerticalsSection key={section.id} verticals={verticals} title={section.title} />
           );
         }
 
@@ -91,11 +110,20 @@ export function HomePage() {
           return (
             <section key={section.id} className="qc-section">
               {section.title ? (
-                <SectionHeader title={section.title} href="/products" linkLabel={{ en: 'View all', ta: 'அனைத்தும்' }} />
+                <SectionHeader
+                  title={section.title}
+                  href="/search"
+                  linkLabel={{ en: 'View all', ta: 'அனைத்தும்' }}
+                />
               ) : null}
               <div className="qc-grid qc-grid--products">
                 {products.map((p) => (
-                  <ProductCard key={p.productId} product={p} />
+                  <ProductCard
+                    key={p.productId}
+                    product={p}
+                    onAdd={() => void quickAdd.mutate(p)}
+                    adding={quickAdd.isAddingProduct(p.productId)}
+                  />
                 ))}
               </div>
             </section>
@@ -110,16 +138,27 @@ export function HomePage() {
                 name: string;
                 rating: number;
                 distanceKm?: number;
+                imageUrl?: string;
               }>;
             }
           ).vendors;
           return (
             <section key={section.id} className="qc-section">
-              {section.title ? <SectionHeader title={section.title} /> : null}
+              {section.title ? (
+                <SectionHeader
+                  title={section.title}
+                  href="/restaurants"
+                  linkLabel={{ en: 'See all', ta: 'அனைத்தும்' }}
+                />
+              ) : null}
               <div className="qc-vendor-row">
                 {vendors.map((v) => (
-                  <div key={v.id} className="qc-vendor-chip">
-                    <Store size={18} aria-hidden />
+                  <Link key={v.id} to={`/vendors/${v.id}`} className="qc-vendor-chip">
+                    {v.imageUrl ? (
+                      <img src={v.imageUrl} alt="" className="qc-vendor-chip__img" />
+                    ) : (
+                      <Store size={18} aria-hidden />
+                    )}
                     <div>
                       <strong>{v.name}</strong>
                       <span className="qc-meta">
@@ -127,7 +166,7 @@ export function HomePage() {
                         {v.distanceKm != null ? ` · ${v.distanceKm.toFixed(1)} km` : ''}
                       </span>
                     </div>
-                  </div>
+                  </Link>
                 ))}
               </div>
             </section>
@@ -151,11 +190,20 @@ export function HomePage() {
         }
 
         if (section.type === 'promo_strip') {
-          const promos = (section.data as { promos: Array<{ label: { en: string; ta?: string } }> }).promos;
+          const promos = (
+            section.data as {
+              promos: Array<{
+                label: { en: string; ta?: string };
+                ctaPath?: string;
+              }>;
+            }
+          ).promos;
           return (
             <section key={section.id} className="qc-promo-strip">
               {promos.map((p, i) => (
-                <span key={i}>{tName(p.label)}</span>
+                <Link key={i} to={p.ctaPath?.startsWith('/') ? p.ctaPath : '/offers'}>
+                  {tName(p.label)}
+                </Link>
               ))}
             </section>
           );

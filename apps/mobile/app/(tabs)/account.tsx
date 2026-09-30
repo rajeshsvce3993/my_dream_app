@@ -1,22 +1,32 @@
-import { router } from 'expo-router';
-import { Pressable, ScrollView, Text, View } from 'react-native';
+import { router, type Href } from 'expo-router';
+import { Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
+import { useQueryClient } from '@tanstack/react-query';
 import { ScreenHeader } from '../../components/ScreenHeader';
-import { theme, spacing, radius, shadow } from '../../lib/theme';
-import { screenHeaderStyles as h } from '../../lib/screenHeaderStyles';
+import { theme, spacing, radius } from '../../lib/theme';
 import { useAppLocation, usePublicConfig } from '../../lib/usePublicConfig';
 import { useAuthSession } from '../../lib/useAuthSession';
 import { openLogin } from '../../lib/openLogin';
 import { invalidateAuthSession } from '../../lib/authSession';
-import { useQueryClient } from '@tanstack/react-query';
 import { text } from '../../lib/locale';
 
-const MENU = [
-  { icon: 'cube-outline' as const, label: 'Your Orders', href: '/(tabs)/orders', tint: theme.successSoft, color: theme.primary },
-  { icon: 'location-outline' as const, label: 'Saved Addresses', href: '/(tabs)/account', tint: theme.neutralSoft, color: theme.primary },
-  { icon: 'wallet-outline' as const, label: 'Refunds & Payments', href: '/(tabs)/account', tint: theme.neutralSoft, color: theme.primary },
-  { icon: 'notifications-outline' as const, label: 'Notifications', href: '/(tabs)/account', tint: theme.neutralSoft, color: theme.muted },
-  { icon: 'help-circle-outline' as const, label: 'Help & Support', href: '/(tabs)/account', tint: theme.neutralSoft, color: theme.muted },
+type MenuItem = {
+  icon: keyof typeof Ionicons.glyphMap;
+  label: string;
+  href?: Href;
+  requiresAuth?: boolean;
+};
+
+const ACCOUNT_MENU: MenuItem[] = [
+  { icon: 'receipt-outline', label: 'Your orders', href: '/(tabs)/orders', requiresAuth: true },
+  { icon: 'location-outline', label: 'Saved addresses', href: '/login-address', requiresAuth: true },
+  { icon: 'wallet-outline', label: 'Wallet', href: '/wallet', requiresAuth: true },
+];
+
+const SUPPORT_MENU: MenuItem[] = [
+  { icon: 'card-outline', label: 'Refunds & payments' },
+  { icon: 'notifications-outline', label: 'Notifications' },
+  { icon: 'help-circle-outline', label: 'Help & support' },
 ];
 
 export default function ProfileScreen() {
@@ -28,6 +38,11 @@ export default function ProfileScreen() {
   const auth = useAuthSession();
   const signedIn = auth.signedIn;
   const queryClient = useQueryClient();
+
+  const displayName =
+    auth.greetingName !== 'Guest'
+      ? auth.greetingName
+      : text(profile?.displayName, 'Dream Food guest');
 
   async function logout() {
     try {
@@ -42,150 +57,186 @@ export default function ProfileScreen() {
     router.replace('/(tabs)/account');
   }
 
+  function openItem(item: MenuItem) {
+    if (item.requiresAuth && !signedIn) {
+      openLogin(typeof item.href === 'string' ? item.href : '/(tabs)/account');
+      return;
+    }
+    if (item.href === '/login-address') {
+      router.push({ pathname: '/login-address', params: { returnTo: '/(tabs)/account' } });
+      return;
+    }
+    if (item.href) router.push(item.href);
+  }
+
   return (
     <View style={{ flex: 1, backgroundColor: theme.bg }}>
-      <ScreenHeader title="Profile" showCart layout="leading" />
+      <ScreenHeader title="Account" showCart layout="leading" />
 
-      <ScrollView contentContainerStyle={h.bodyPadding}>
+      <ScrollView
+        showsVerticalScrollIndicator={false}
+        contentContainerStyle={{
+          paddingHorizontal: spacing.lg,
+          paddingTop: spacing.sm,
+          paddingBottom: spacing.xl,
+          gap: spacing.sm,
+        }}
+      >
         {signedIn ? (
-          <Pressable
-            style={{
-              flexDirection: 'row',
-              alignItems: 'center',
-              gap: spacing.md,
-              backgroundColor: theme.surface,
-              padding: spacing.lg,
-              borderRadius: radius.md,
-              marginBottom: spacing.lg,
-              ...shadow.card,
-            }}
-          >
-            <View
-              style={{
-                width: 56,
-                height: 56,
-                borderRadius: 28,
-                backgroundColor: theme.neutralSoft,
-                alignItems: 'center',
-                justifyContent: 'center',
-              }}
-            >
-              <Ionicons name="person" size={28} color={theme.primary} />
-            </View>
-            <View style={{ flex: 1 }}>
-              <Text style={{ fontWeight: '800', fontSize: 17 }}>
-                {auth.greetingName !== 'Guest' ? auth.greetingName : text(profile?.displayName, 'FreshMart Customer')}
-              </Text>
-              <Text style={{ color: theme.muted, marginTop: 2 }}>
-                {auth.me.data?.phone ?? location.label}
-              </Text>
-              <Text style={{ color: theme.primary, marginTop: 4, fontWeight: '600' }}>Edit Profile</Text>
-            </View>
-            <Ionicons name="chevron-forward" size={20} color={theme.muted} />
-          </Pressable>
-        ) : (
-          <Pressable
-            onPress={() => openLogin('/(tabs)/account')}
-            style={{
-              backgroundColor: theme.primary,
-              padding: spacing.lg,
-              borderRadius: radius.md,
-              marginBottom: spacing.lg,
-            }}
-          >
-            <Text style={{ color: 'white', fontWeight: '800', textAlign: 'center' }}>Sign in</Text>
-          </Pressable>
-        )}
-
-        {MENU.slice(0, 3).map((item) => (
-          <Pressable
-            key={item.label}
-            onPress={() => {
-              if (!signedIn) {
-                openLogin(item.href === '/(tabs)/orders' ? '/(tabs)/orders' : '/(tabs)/account');
-                return;
-              }
-              router.push(item.href as '/(tabs)/orders');
-            }}
-            style={{
-                flexDirection: 'row',
-                alignItems: 'center',
-                backgroundColor: theme.surface,
-                padding: spacing.lg,
-                borderRadius: radius.md,
-                marginBottom: spacing.sm,
-                ...shadow.card,
-              }}
-            >
+          <View style={styles.card}>
+            <View style={{ flexDirection: 'row', alignItems: 'center', gap: 12 }}>
               <View
                 style={{
-                  width: 40,
-                  height: 40,
-                  borderRadius: 10,
-                  backgroundColor: item.tint,
+                  width: 48,
+                  height: 48,
+                  borderRadius: 24,
+                  backgroundColor: theme.bannerBg,
                   alignItems: 'center',
                   justifyContent: 'center',
                 }}
               >
-                <Ionicons name={item.icon} size={22} color={item.color} />
+                <Text style={{ color: theme.white, fontWeight: '800', fontSize: 18 }}>
+                  {(displayName.trim()[0] ?? 'U').toUpperCase()}
+                </Text>
               </View>
-              <Text style={{ flex: 1, marginLeft: spacing.md, fontWeight: '600' }}>{item.label}</Text>
-              <Ionicons name="chevron-forward" size={20} color={theme.muted} />
-            </Pressable>
-        ))}
-
-        <View style={{ height: spacing.md }} />
-
-        {MENU.slice(3).map((item) => (
-          <Pressable
-            key={item.label}
-            style={{
-              flexDirection: 'row',
-              alignItems: 'center',
-              backgroundColor: theme.surface,
-              padding: spacing.lg,
-              borderRadius: radius.md,
-              marginBottom: spacing.sm,
-              ...shadow.card,
-            }}
-          >
-            <View
+              <View style={{ flex: 1, minWidth: 0 }}>
+                <Text style={{ fontWeight: '800', fontSize: 15, color: theme.text }} numberOfLines={1}>
+                  {displayName}
+                </Text>
+                <Text style={{ color: theme.muted, fontSize: 12, marginTop: 2 }} numberOfLines={1}>
+                  {auth.me.data?.phone ?? location.label}
+                </Text>
+              </View>
+            </View>
+          </View>
+        ) : (
+          <View style={styles.card}>
+            <Text style={{ fontWeight: '800', fontSize: 15, color: theme.text }}>Welcome</Text>
+            <Text style={{ color: theme.muted, fontSize: 12, marginTop: 4, lineHeight: 17 }}>
+              Sign in for faster checkout and order tracking.
+            </Text>
+            <Pressable
+              onPress={() => openLogin('/(tabs)/account')}
               style={{
-                width: 40,
-                height: 40,
-                borderRadius: 10,
-                backgroundColor: item.tint,
+                marginTop: 12,
+                backgroundColor: theme.bannerBg,
+                paddingVertical: 11,
+                borderRadius: radius.sm,
                 alignItems: 'center',
-                justifyContent: 'center',
               }}
             >
-              <Ionicons name={item.icon} size={22} color={item.color} />
-            </View>
-            <Text style={{ flex: 1, marginLeft: spacing.md, fontWeight: '600' }}>{item.label}</Text>
-            <Ionicons name="chevron-forward" size={20} color={theme.muted} />
-          </Pressable>
-        ))}
+              <Text style={{ color: theme.white, fontWeight: '700', fontSize: 13 }}>Sign in</Text>
+            </Pressable>
+          </View>
+        )}
+
+        <SectionLabel>Account</SectionLabel>
+        <MenuGroup items={ACCOUNT_MENU} onPress={openItem} />
+
+        <SectionLabel>More</SectionLabel>
+        <MenuGroup items={SUPPORT_MENU} onPress={openItem} />
 
         {signedIn ? (
           <Pressable
             onPress={logout}
             style={{
-              marginTop: spacing.lg,
-              padding: spacing.lg,
-              borderRadius: radius.md,
-              borderWidth: 1.5,
-              borderColor: theme.discount,
-              backgroundColor: theme.surface,
+              marginTop: spacing.sm,
+              backgroundColor: theme.white,
+              borderRadius: radius.sm,
+              borderWidth: 1,
+              borderColor: theme.border,
+              paddingVertical: 12,
+              alignItems: 'center',
             }}
           >
-            <Text style={{ color: theme.discount, fontWeight: '800', textAlign: 'center' }}>Log Out</Text>
+            <Text style={{ color: theme.discount, fontWeight: '700', fontSize: 13 }}>Log out</Text>
           </Pressable>
         ) : null}
 
-        <Text style={{ textAlign: 'center', color: theme.muted, fontSize: 12, marginTop: spacing.xl }}>
-          {profile?.appVersion ?? 'FreshMart App v2.4.1'}
+        <Text
+          style={{
+            textAlign: 'center',
+            color: theme.muted,
+            fontSize: 11,
+            marginTop: spacing.md,
+          }}
+        >
+          {profile?.appVersion ?? 'Dream Food'}
         </Text>
       </ScrollView>
     </View>
   );
 }
+
+function SectionLabel({ children }: { children: string }) {
+  return (
+    <Text
+      style={{
+        fontSize: 11,
+        fontWeight: '800',
+        color: theme.muted,
+        letterSpacing: 0.4,
+        textTransform: 'uppercase',
+        marginTop: 6,
+        marginBottom: 2,
+        paddingHorizontal: 2,
+      }}
+    >
+      {children}
+    </Text>
+  );
+}
+
+function MenuGroup({
+  items,
+  onPress,
+}: {
+  items: MenuItem[];
+  onPress: (item: MenuItem) => void;
+}) {
+  return (
+    <View style={[styles.card, { paddingVertical: 0, paddingHorizontal: 0, overflow: 'hidden' }]}>
+      {items.map((item, index) => (
+        <Pressable
+          key={item.label}
+          onPress={() => onPress(item)}
+          style={{
+            flexDirection: 'row',
+            alignItems: 'center',
+            gap: 10,
+            paddingVertical: 12,
+            paddingHorizontal: 12,
+            borderTopWidth: index === 0 ? 0 : StyleSheet.hairlineWidth,
+            borderTopColor: theme.border,
+          }}
+        >
+          <View
+            style={{
+              width: 34,
+              height: 34,
+              borderRadius: 8,
+              backgroundColor: theme.neutralSoft,
+              alignItems: 'center',
+              justifyContent: 'center',
+            }}
+          >
+            <Ionicons name={item.icon} size={18} color={theme.primary} />
+          </View>
+          <Text style={{ flex: 1, fontWeight: '600', fontSize: 13, color: theme.text }}>{item.label}</Text>
+          <Ionicons name="chevron-forward" size={16} color={theme.muted} />
+        </Pressable>
+      ))}
+    </View>
+  );
+}
+
+const styles = StyleSheet.create({
+  card: {
+    backgroundColor: theme.white,
+    borderRadius: radius.sm,
+    borderWidth: 1,
+    borderColor: theme.border,
+    paddingHorizontal: 12,
+    paddingVertical: 12,
+  },
+});

@@ -16,6 +16,7 @@ import { logger } from '../infrastructure/logging/logger.js';
 import { normalizeSeedPrice } from '../common/money.util.js';
 import { syncVariantListPriceFromVendors } from '../modules/products/variantListPrice.service.js';
 import { seedCategoryHierarchy } from './seedCategoryHierarchy.js';
+import { seedFoodMenus } from './seedFoodMenus.js';
 
 interface FreshmartSeedFile {
   configurations: Array<{
@@ -41,6 +42,8 @@ interface FreshmartSeedFile {
     lng: number;
     lat: number;
     serviceAreaWideDelivery?: boolean;
+    cuisineTags?: string[];
+    imageUrl?: string;
     address?: { city?: string; state?: string; country?: string };
   }>;
   products: Array<{
@@ -121,6 +124,8 @@ export async function loadFreshmartSeedFromFile(filePath?: string): Promise<void
         serviceAreaRadiusKm: 20,
         deliveryRadiusKm: 15,
         serviceAreaWideDelivery: Boolean(v.serviceAreaWideDelivery),
+        cuisineTags: Array.isArray(v.cuisineTags) ? v.cuisineTags : [],
+        imageUrl: typeof v.imageUrl === 'string' && v.imageUrl.trim() ? v.imageUrl.trim() : undefined,
         address: v.address,
       },
       { upsert: true, new: true },
@@ -221,54 +226,10 @@ export async function loadFreshmartSeedFromFile(filePath?: string): Promise<void
   await expandDemoVendorCatalog(vendorByCode, categoryBySlug);
   await backfillAllVariantListPrices();
   await renormalizeAllVendorProductPrices();
-  await cloneVendorCatalogIfEmpty('FRESH-FARM', 'TIRUVALLUR-MART', vendorByCode);
+  // Cuisine restaurants get food menus (not grocery catalog clones)
+  await seedFoodMenus(vendorByCode);
 
   logger.info('FreshMart seed file loaded successfully');
-}
-
-/** Gives new local stores a starter catalog (same SKUs as template) for store list / browse tests. */
-async function cloneVendorCatalogIfEmpty(
-  templateCode: string,
-  targetCode: string,
-  vendorByCode: Map<string, string>,
-): Promise<void> {
-  const templateId = vendorByCode.get(templateCode);
-  const targetId = vendorByCode.get(targetCode);
-  if (!templateId || !targetId) return;
-
-  const existing = await VendorProductModel.countDocuments({ vendorId: targetId, isActive: true });
-  if (existing > 0) return;
-
-  const templateMappings = await VendorProductModel.find({ vendorId: templateId, isActive: true }).lean();
-  for (const m of templateMappings) {
-    await VendorProductModel.updateOne(
-      { vendorId: targetId, variantId: m.variantId },
-      {
-        vendorId: targetId,
-        productId: m.productId,
-        variantId: m.variantId,
-        vendorPrice: m.vendorPrice,
-        mrp: m.mrp,
-        sellingPrice: m.sellingPrice,
-        isActive: true,
-        preparationMinutes: m.preparationMinutes ?? 30,
-      },
-      { upsert: true },
-    );
-    const inv = await InventoryModel.findOne({ vendorId: templateId, variantId: m.variantId }).lean();
-    await InventoryModel.updateOne(
-      { vendorId: targetId, variantId: m.variantId },
-      {
-        vendorId: targetId,
-        variantId: m.variantId,
-        available: inv?.available ?? 40,
-        reserved: 0,
-        sold: 0,
-        lowStockThreshold: 10,
-      },
-      { upsert: true },
-    );
-  }
 }
 
 /** Keeps DB catalog amounts on ₹ whole or .50 steps after seed edits or legacy data. */
@@ -293,14 +254,23 @@ async function renormalizeAllVendorProductPrices(): Promise<void> {
   }
 }
 
-/** Ensures demo scale: 50+ global SKUs and 100+ vendor listings for store browsing tests. */
+/** Ensures demo scale: 50+ global SKUs and 100+ vendor listings for store browsing tests.
+ * Skips cuisine restaurants — those get food menus from seedFoodMenus.
+ */
 async function expandDemoVendorCatalog(
   vendorByCode: Map<string, string>,
   categoryBySlug: Map<string, string>,
 ): Promise<void> {
   const categorySlugs = ['groceries', 'snacks', 'beverages', 'dairy'];
-  const vendorCodes = [...vendorByCode.keys()];
-  if (!vendorCodes.length) return;
+  const groceryVendorCodes: string[] = [];
+  for (const code of vendorByCode.keys()) {
+    const vendorId = vendorByCode.get(code);
+    if (!vendorId) continue;
+    const vendor = await VendorModel.findById(vendorId).select('cuisineTags').lean();
+    if (vendor && Array.isArray(vendor.cuisineTags) && vendor.cuisineTags.length > 0) continue;
+    groceryVendorCodes.push(code);
+  }
+  if (!groceryVendorCodes.length) return;
 
   let mappingCount = await VendorProductModel.countDocuments();
   const productCount = await ProductModel.countDocuments();
@@ -340,9 +310,9 @@ async function expandDemoVendorCatalog(
       { upsert: true, new: true },
     );
 
-    for (let v = 0; v < vendorCodes.length; v += 1) {
+    for (let v = 0; v < groceryVendorCodes.length; v += 1) {
       if ((i + v) % 3 === 0) continue;
-      const vendorId = vendorByCode.get(vendorCodes[v]);
+      const vendorId = vendorByCode.get(groceryVendorCodes[v]);
       if (!vendorId) continue;
       const step = 5 + (i % 3) * 5;
       const base = normalizeSeedPrice(45 + ((i * 3 + v * 2) % 24) * step);

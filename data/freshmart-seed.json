@@ -6,13 +6,13 @@
   "configurations": [
     {
       "key": "brand.name",
-      "value": "FreshMart",
+      "value": "Dream Food",
       "category": "ui",
       "isPublic": true
     },
     {
       "key": "brand.tagline",
-      "value": "Better Choices. Healthier You.",
+      "value": "Hot meals & groceries — delivered fast.",
       "category": "ui",
       "isPublic": true
     },
@@ -169,8 +169,8 @@
     {
       "key": "home.deliveryPromise",
       "value": {
-        "en": "Delivery in 10–20 min",
-        "ta": "10–20 நிமிடத்தில் விநியோகம்"
+        "en": "Food delivered in 25–40 min",
+        "ta": "25–40 நிமிடத்தில் உணவு விநியோகம்"
       },
       "category": "ui",
       "isPublic": true
@@ -178,8 +178,8 @@
     {
       "key": "home.greetingTemplate",
       "value": {
-        "en": "What do you need today?",
-        "ta": "இன்று என்ன வேண்டும்?"
+        "en": "Craving something delicious?",
+        "ta": "ஏதாவது சுவையானது வேண்டுமா?"
       },
       "category": "ui",
       "isPublic": true
@@ -188,21 +188,267 @@
       "key": "home.hero",
       "value": {
         "title": {
-          "en": "Fresh Products Better Prices",
-          "ta": "புதிய பொருட்கள் — சிறந்த விலை"
+          "en": "Order food from nearby kitchens",
+          "ta": "அர 근 kitchen-களிலிருந்து ஆர்டர் செய்யுங்கள்"
         },
         "subtitle": {
-          "en": "Compare local vendors. One cart. Fast delivery.",
-          "ta": "உங்கள் அர 근 கடைகளை ஒப்பிடுங்கள். ஒரே cart. விரைவு விநியோகம்."
+          "en": "Browse restaurants, add favourites to cart, track delivery live.",
+          "ta": "உணவகங்களை உலாவுங்கள், cart-ல் சேருங்கள், live tracking."
         },
         "ctaLabel": {
-          "en": "Order Now",
-          "ta": "இப்போது ஆர்டர்"
+          "en": "Explore food",
+          "ta": "உணவை காணுங்கள்"
         },
-        "ctaPath": "/products"
+        "ctaPath": "/stores"
       },
       "category": "ui",
       "isPublic": true
+    },
+    {
+      "key": "home.verticals",
+      "description": "Business lines on customer home (mobile & web). Admin toggles enabled/status; food should stay primary + live.",
+      "category": "ui",
+      "isPublic": true,
+      "value": [
+        {
+          "id": "food",
+          "label": {
+            "en": "Food",
+            "ta": "உணவு"
+          },
+          "icon": "fast-food-outline",
+          "webIcon": "utensils",
+          "enabled": true,
+          "isPrimary": true,
+          "status": "live",
+          "href": "/stores",
+          "tileBg": "#FEE2E2",
+          "iconColor": "#DC2626",
+          "sortOrder": 0
+        },
+        {
+          "id": "groceries",
+          "label": {
+            "en": "Grocery",
+            "ta": "மளிகை"
+          },
+          "icon": "cart-outline",
+          "webIcon": "shopping-basket",
+          "enabled": false,
+          "status": "coming_soon",
+          "href": "/products",
+          "categorySlug": "groceries",
+          "tileBg": "#D1FAE5",
+          "iconColor": "#059669",
+          "sortOrder": 1
+        },
+        {
+          "id": "gifts",
+          "label": {
+            "en": "Gifts",
+            "ta": "பரிசு"
+          },
+          "icon": "gift-outline",
+          "webIcon": "gift",
+          "enabled": true,
+          "status": "coming_soon",
+          "href": "/products",
+          "tileBg": "#FFEDD5",
+          "iconColor": "#EA580C",
+          "sortOrder": 2
+        },
+        {
+          "id": "toys",
+          "label": {
+            "en": "Toys",
+            "ta": "பொம்மை"
+          },
+          "icon": "game-controller-outline",
+          "webIcon": "gift",
+          "enabled": true,
+          "status": "coming_soon",
+          "href": "/products",
+          "tileBg": "#DBEAFE",
+          "iconColor": "#2563EB",
+          "sortOrder": 3
+        },
+        {
+          "id": "fashion",
+          "label": {
+            "en": "Fashion",
+            "ta": "ஃபேஷன்"
+          },
+          "icon": "shirt-outline",
+          "webIcon": "shirt",
+          "enabled": true,
+          "status": "coming_soon",
+          "href": "/products",
+          "tileBg": "#EDE9FE",
+          "iconColor": "#7C3AED",
+          "sortOrder": 4
+        },
+        {
+          "id": "electronics",
+          "label": {
+            "en": "Electronics",
+            "ta": "எலெக்ட்ரானிக்ஸ்"
+          },
+          "icon": "laptop-outline",
+          "webIcon": "smartphone",
+          "enabled": true,
+          "status": "coming_soon",
+          "href": "/products",
+          "tileBg": "#E0E7FF",
+          "iconColor": "#4F46E5",
+          "sortOrder": 5
+        },
+        {
+          "id": "home-living",
+          "label": {
+            "en": "Home & Living",
+            "ta": "வீடு & living"
+          },
+          "icon": "leaf-outline",
+          "webIcon": "gift",
+          "enabled": true,
+          "status": "coming_soon",
+          "href": "/products",
+          "tileBg": "#FCE7F3",
+          "iconColor": "#DB2777",
+          "sortOrder": 6
+        },
+        {
+          "id": "more",
+          "label": {
+            "en": "More",
+            "ta": "மேலும்"
+          },
+          "icon": "ellipsis-horizontal",
+          "webIcon": "gift",
+          "enabled": true,
+          "status": "live",
+          "href": "/stores",
+          "tileBg": "#F3F4F6",
+          "iconColor": "#6B7280",
+          "sortOrder": 7
+        }
+      ]
+    },
+    {
+      "key": "home.topPicks",
+      "description": "Dish shortcuts under home Food tab (Biryani, Fried rice, etc.). Managed in Admin → Top picks.",
+      "category": "ui",
+      "isPublic": true,
+      "value": [
+        {
+          "id": "dosa",
+          "label": {
+            "en": "Dosa",
+            "ta": "தோசை"
+          },
+          "searchQuery": "dosa",
+          "diet": "veg",
+          "imageUrl": "https://images.pexels.com/photos/5560763/pexels-photo-5560763.jpeg?auto=compress&cs=tinysrgb&w=240&h=240&fit=crop",
+          "enabled": true,
+          "sortOrder": 0
+        },
+        {
+          "id": "idli",
+          "label": {
+            "en": "Idli",
+            "ta": "இட்லி"
+          },
+          "searchQuery": "idli",
+          "diet": "veg",
+          "imageUrl": "https://images.unsplash.com/photo-1589301760014-d929f3979dbc?w=240&h=240&fit=crop",
+          "enabled": true,
+          "sortOrder": 1
+        },
+        {
+          "id": "fried-rice",
+          "label": {
+            "en": "Veg fried rice",
+            "ta": "Veg fried rice"
+          },
+          "searchQuery": "veg fried rice",
+          "diet": "veg",
+          "imageUrl": "https://images.unsplash.com/photo-1603133872878-684f208fb84b?w=240&h=240&fit=crop",
+          "enabled": true,
+          "sortOrder": 2
+        },
+        {
+          "id": "chicken-fried-rice",
+          "label": {
+            "en": "Chicken fried rice",
+            "ta": "Chicken fried rice"
+          },
+          "searchQuery": "chicken fried rice",
+          "diet": "nonveg",
+          "imageUrl": "https://images.unsplash.com/photo-1603133872878-684f208fb84b?w=240&h=240&fit=crop",
+          "enabled": true,
+          "sortOrder": 3
+        },
+        {
+          "id": "noodles",
+          "label": {
+            "en": "Veg noodles",
+            "ta": "நூடுல்ஸ்"
+          },
+          "searchQuery": "veg noodles",
+          "diet": "veg",
+          "imageUrl": "https://images.unsplash.com/photo-1585032226651-759b368d7246?w=240&h=240&fit=crop",
+          "enabled": true,
+          "sortOrder": 4
+        },
+        {
+          "id": "chicken-biryani",
+          "label": {
+            "en": "Chicken biryani",
+            "ta": "சிக்கன் பிரியாணி"
+          },
+          "searchQuery": "chicken biryani",
+          "diet": "nonveg",
+          "imageUrl": "https://images.unsplash.com/photo-1563379091339-03b21ab4a4f8?w=240&h=240&fit=crop",
+          "enabled": true,
+          "sortOrder": 5
+        },
+        {
+          "id": "pizza",
+          "label": {
+            "en": "Pizza",
+            "ta": "Pizza"
+          },
+          "searchQuery": "pizza",
+          "diet": "veg",
+          "imageUrl": "https://images.unsplash.com/photo-1565299624946-b28f40a0ae38?w=240&h=240&fit=crop",
+          "enabled": true,
+          "sortOrder": 6
+        },
+        {
+          "id": "burger",
+          "label": {
+            "en": "Veg burger",
+            "ta": "Burger"
+          },
+          "searchQuery": "veg burger",
+          "diet": "veg",
+          "imageUrl": "https://images.unsplash.com/photo-1568901346375-23c9450c58cd?w=240&h=240&fit=crop",
+          "enabled": true,
+          "sortOrder": 7
+        },
+        {
+          "id": "chicken-burger",
+          "label": {
+            "en": "Chicken burger",
+            "ta": "சிக்கன் பர்கர்"
+          },
+          "searchQuery": "chicken burger",
+          "diet": "nonveg",
+          "imageUrl": "https://images.unsplash.com/photo-1568901346375-23c9450c58cd?w=240&h=240&fit=crop",
+          "enabled": true,
+          "sortOrder": 8
+        }
+      ]
     },
     {
       "key": "home.sections",
@@ -216,41 +462,64 @@
           "enabled": true
         },
         {
+          "id": "top-picks",
+          "type": "top_picks",
+          "enabled": true,
+          "title": {
+            "en": "Top picks",
+            "ta": "Top picks"
+          }
+        },
+        {
+          "id": "verticals",
+          "type": "vertical_shortcuts",
+          "enabled": false
+        },
+        {
+          "id": "vendors",
+          "type": "vendor_row",
+          "enabled": true,
+          "title": {
+            "en": "Top restaurants",
+            "ta": "Top உணவகங்கள்"
+          },
+          "config": {
+            "limit": 10,
+            "viewAllPath": "/restaurants",
+            "viewAllLabel": {
+              "en": "View all",
+              "ta": "அனைத்தும்"
+            }
+          }
+        },
+        {
           "id": "categories",
           "type": "category_shortcuts",
-          "enabled": true,
+          "enabled": false,
           "config": {
             "limit": 4,
             "slugs": [
-              "groceries",
-              "dairy",
+              "snacks",
+              "beverages",
               "bakery",
-              "gifts"
-            ],
-            "productLimit": 10,
-            "subcategoryLimit": 20,
-            "defaultSubcategorySlugByParent": {
-              "groceries": "groceries-rice-pulses",
-              "dairy": "dairy-milk",
-              "bakery": "bakery-bread",
-              "gifts": "gifts-hampers"
-            }
+              "dairy"
+            ]
           }
         },
         {
           "id": "essentials",
           "type": "product_row",
-          "enabled": true,
+          "enabled": false,
           "title": {
-            "en": "Top Deals",
-            "ta": "சிறந்த சலுகைகள்"
+            "en": "Top Picks for You",
+            "ta": "உங்களுக்கான top picks"
           },
           "config": {
-            "limit": 6,
-            "layout": "grid",
+            "limit": 8,
+            "layout": "horizontal",
             "viewAllCategorySlug": "groceries",
             "viewAllLabel": {
-              "en": "View all",
+              "en": "See all",
               "ta": "அனைத்தும்"
             },
             "skus": [
@@ -284,15 +553,6 @@
           "title": {
             "en": "Featured",
             "ta": "சிறப்பு"
-          }
-        },
-        {
-          "id": "vendors",
-          "type": "vendor_row",
-          "enabled": false,
-          "title": {
-            "en": "Stores delivering to you",
-            "ta": "உங்களுக்கு விநியோகிக்கும் கடைகள்"
           }
         },
         {
@@ -330,51 +590,54 @@
       "value": [
         {
           "label": {
-            "en": "Fresh Fruits & Vegetables",
-            "ta": "புதிய பழங்கள் & காய்கறிகள்"
+            "en": "Flat 50% OFF on your first order",
+            "ta": "முதல் ஆர்டரில் Flat 50% OFF"
           },
           "subtitle": {
-            "en": "From local shops near you",
-            "ta": "உங்கள் அர 근 கடைகளிலிருந்து"
+            "en": "New users · save up to ₹100",
+            "ta": "புதிய பயனர்கள் · ₹100 வரை சேமிப்பு"
           },
           "ctaLabel": {
-            "en": "Order Now",
-            "ta": "இப்போது ஆர்டர்"
+            "en": "Grab it",
+            "ta": "எடுங்கள்"
           },
-          "ctaPath": "/category/fruits-vegetables",
-          "imageUrl": "https://images.unsplash.com/photo-1610832958506-aa56368178cf?w=480&h=480&fit=crop"
+          "ctaPath": "/restaurants",
+          "backgroundColor": "#5C2E38",
+          "imageUrl": "https://images.unsplash.com/photo-1565299624946-b28f40a0ae38?auto=format&fit=crop&w=400&h=320&q=80"
         },
         {
           "label": {
-            "en": "Farm-Fresh Dairy",
-            "ta": "பண்ணை புதிய பால் பொருட்கள்"
+            "en": "Flat ₹100 OFF on orders above ₹200",
+            "ta": "₹200-க்கு மேல் Flat ₹100 OFF"
           },
           "subtitle": {
-            "en": "Milk, curd & more from nearby stores",
-            "ta": "அர 근 கடைகளிலிருந்து பால், தயிர் முதலியன"
+            "en": "No code needed · auto applied",
+            "ta": "கோட் தேவையில்லை"
           },
           "ctaLabel": {
-            "en": "Order Now",
-            "ta": "இப்போது ஆர்டர்"
+            "en": "Order now",
+            "ta": "ஆர்டர்"
           },
-          "ctaPath": "/category/dairy",
-          "imageUrl": "https://images.unsplash.com/photo-1628087224152-2470469d4a10?w=480&h=480&fit=crop"
+          "ctaPath": "/restaurants",
+          "backgroundColor": "#5C2E38",
+          "imageUrl": "https://images.unsplash.com/photo-1555939594-58d7cb561ad1?auto=format&fit=crop&w=400&h=320&q=80"
         },
         {
           "label": {
-            "en": "Bakery Favourites",
-            "ta": "பேக்கரி சிறப்புகள்"
+            "en": "Free delivery on select kitchens",
+            "ta": "தேர்ந்த உணவகங்களில் இலவச டெலிவரி"
           },
           "subtitle": {
-            "en": "Bread & buns baked fresh daily",
-            "ta": "தினமும் புதிய ரொட்டி & பன்ஸ்"
+            "en": "Limited slots near you",
+            "ta": "அருகில் வரையறுக்கப்பட்ட slot"
           },
           "ctaLabel": {
-            "en": "Order Now",
-            "ta": "இப்போது ஆர்டர்"
+            "en": "Browse",
+            "ta": "பார்க்க"
           },
-          "ctaPath": "/category/bakery",
-          "imageUrl": "https://images.unsplash.com/photo-1509440159596-0249088772ff?w=480&h=480&fit=crop"
+          "ctaPath": "/restaurants",
+          "backgroundColor": "#5C2E38",
+          "imageUrl": "https://images.unsplash.com/photo-1567620905732-2d1ec7ab7445?auto=format&fit=crop&w=400&h=320&q=80"
         }
       ],
       "category": "ui",
@@ -383,14 +646,14 @@
     {
       "key": "search.popularQueries",
       "value": [
+        "biryani",
+        "pizza",
+        "burger",
+        "dosa",
+        "fried rice",
         "milk",
-        "paneer",
         "bread",
-        "eggs",
-        "tomato",
-        "rice",
-        "பால்",
-        "அரிசி"
+        "பிரியாணி"
       ],
       "category": "ui",
       "isPublic": true
@@ -398,12 +661,112 @@
     {
       "key": "mobile.search.placeholder",
       "value": {
-        "en": "Search products, brands…",
-        "ta": "பொருட்கள், பிராண்டுகள் தேடுங்கள்"
+        "en": "Search restaurants, dishes & cravings…",
+        "ta": "உணவகம், dishes தேடுங்கள்…"
       },
       "category": "mobile",
-      "description": "Legacy public config key; mobile uses fixed global search placeholder in code",
+      "description": "Home search bar placeholder",
       "isPublic": true
+    },
+    {
+      "key": "mobile.wallet",
+      "description": "Customer wallet display (balance shown in mobile Wallet screen)",
+      "category": "mobile",
+      "isPublic": true,
+      "value": {
+        "balance": 0,
+        "subtitle": {
+          "en": "Use wallet balance at checkout when available"
+        }
+      }
+    },
+    {
+      "key": "mobile.home.foodMode",
+      "description": "Animated food tab under home search (brand name + tagline)",
+      "category": "mobile",
+      "isPublic": true,
+      "value": {
+        "brandName": {
+          "en": "CraveRush",
+          "ta": "CraveRush"
+        },
+        "tabLabel": {
+          "en": "Crave Drop",
+          "ta": "கிரேவ் டிராப்"
+        },
+        "tagline": {
+          "en": "Hungry? Tap in · feast lands fast",
+          "ta": "பசிக்குதா? தட்டிடுங்கள் · விரைவில் உணவு"
+        },
+        "imageUrl": "https://images.unsplash.com/photo-1565299624946-b28f40a0ae38?w=900&h=500&fit=crop"
+      }
+    },
+    {
+      "key": "mobile.restaurants.cuisineFilters",
+      "description": "Cuisine categories under Restaurants header (All / South Indian / Chinese / Fast Food)",
+      "category": "mobile",
+      "isPublic": true,
+      "value": [
+        {
+          "id": "all",
+          "label": {
+            "en": "All",
+            "ta": "அனைத்தும்"
+          }
+        },
+        {
+          "id": "south-indian",
+          "label": {
+            "en": "South Indian",
+            "ta": "தென்னிந்திய"
+          },
+          "cuisineTags": [
+            "south-indian"
+          ],
+          "menuQuery": "dosa idli sambar",
+          "keywords": [
+            "saravana",
+            "madurai",
+            "mess",
+            "south"
+          ]
+        },
+        {
+          "id": "chinese",
+          "label": {
+            "en": "Chinese",
+            "ta": "சீன"
+          },
+          "cuisineTags": [
+            "chinese"
+          ],
+          "menuQuery": "noodles fried rice",
+          "keywords": [
+            "dragon",
+            "wok",
+            "chinese",
+            "spice route"
+          ]
+        },
+        {
+          "id": "fast-food",
+          "label": {
+            "en": "Fast Food",
+            "ta": "Fast Food"
+          },
+          "cuisineTags": [
+            "fast-food"
+          ],
+          "menuQuery": "burger pizza fries",
+          "keywords": [
+            "burger",
+            "hub",
+            "snap",
+            "bite",
+            "fast"
+          ]
+        }
+      ]
     },
     {
       "key": "mobile.home.greetingSubtextGuest",
@@ -418,8 +781,8 @@
     {
       "key": "mobile.home.greetingSubtextSignedIn",
       "value": {
-        "en": "What do you need today?",
-        "ta": "இன்று என்ன வேண்டும்?"
+        "en": "Order food or pick another category below",
+        "ta": "உணவு ஆர்டர் செய்யுங்கள் அல்லது வேறு வகையைத் தேர்வு செய்யுங்கள்"
       },
       "category": "mobile",
       "description": "Subtext under Welcome on home when signed in",
@@ -443,10 +806,11 @@
     {
       "key": "mobile.categoryIcons",
       "value": {
-        "groceries": "cart-outline",
-        "dairy": "water-outline",
+        "snacks": "fast-food-outline",
+        "beverages": "beer-outline",
         "bakery": "cafe-outline",
-        "gifts": "gift-outline"
+        "dairy": "water-outline",
+        "groceries": "cart-outline"
       },
       "category": "mobile",
       "isPublic": true
@@ -454,10 +818,11 @@
     {
       "key": "mobile.categoryLabels",
       "value": {
-        "groceries": "Groceries",
-        "dairy": "Dairy",
+        "snacks": "Snacks",
+        "beverages": "Drinks",
         "bakery": "Bakery",
-        "gifts": "Gifts"
+        "dairy": "Dairy",
+        "groceries": "Groceries"
       },
       "category": "mobile",
       "description": "Short labels under category icons on home",
@@ -603,91 +968,117 @@
   "vendors": [
     {
       "code": "FRESH-FARM",
-      "name": "Chennai Fresh Mart",
+      "name": "Saravana South Kitchen",
       "rating": 4.7,
       "ratingCount": 320,
       "commissionRate": 8,
       "serviceAreaWideDelivery": true,
+      "cuisineTags": [
+        "south-indian"
+      ],
       "lng": 80.2707,
       "lat": 13.0827,
       "address": {
         "city": "Chennai",
         "state": "TN",
         "country": "IN"
-      }
+      },
+      "imageUrl": "https://images.unsplash.com/photo-1589301760014-d929f3979dbc?w=400&h=400&fit=crop"
     },
     {
       "code": "QUALITY-GROCERS",
-      "name": "Chennai Super Store",
+      "name": "Dragon Wok Chinese",
       "rating": 4.5,
       "ratingCount": 210,
       "commissionRate": 7,
       "serviceAreaWideDelivery": true,
+      "cuisineTags": [
+        "chinese"
+      ],
       "lng": 80.2807,
       "lat": 13.0727,
       "address": {
         "city": "Chennai",
         "state": "TN",
         "country": "IN"
-      }
+      },
+      "imageUrl": "https://images.unsplash.com/photo-1612929636598-ba87b3e7e792?w=400&h=400&fit=crop"
     },
     {
       "code": "GREEN-BAZAAR",
-      "name": "Green Basket",
+      "name": "Madurai Mess",
       "rating": 4.3,
       "ratingCount": 180,
       "commissionRate": 6,
       "serviceAreaWideDelivery": true,
+      "cuisineTags": [
+        "south-indian"
+      ],
       "lng": 80.265,
       "lat": 13.085,
       "address": {
         "city": "Chennai",
         "state": "TN",
         "country": "IN"
-      }
+      },
+      "imageUrl": "https://images.unsplash.com/photo-1668236543141-dee012181f6b?w=400&h=400&fit=crop"
     },
     {
       "code": "ANNA-NAGAR-MART",
-      "name": "Anna Nagar Daily Mart",
+      "name": "Burger Hub",
       "rating": 4.4,
       "ratingCount": 140,
       "commissionRate": 7,
       "serviceAreaWideDelivery": true,
+      "cuisineTags": [
+        "fast-food"
+      ],
       "lng": 80.275,
       "lat": 13.09,
       "address": {
         "city": "Chennai",
         "state": "TN",
         "country": "IN"
-      }
+      },
+      "imageUrl": "https://images.unsplash.com/photo-1568901346375-23c9450c58cd?w=400&h=400&fit=crop"
     },
     {
       "code": "VELACHERY-FOODS",
-      "name": "Velachery Foods",
+      "name": "Spice Route Chinese",
       "rating": 4.2,
       "ratingCount": 95,
       "commissionRate": 6,
+      "cuisineTags": [
+        "chinese",
+        "fast-food"
+      ],
       "lng": 80.22,
       "lat": 12.975,
       "address": {
         "city": "Chennai",
         "state": "TN",
         "country": "IN"
-      }
+      },
+      "imageUrl": "https://images.unsplash.com/photo-1603133872878-684f208fb84b?w=400&h=400&fit=crop"
     },
     {
       "code": "TIRUVALLUR-MART",
-      "name": "Tiruvallur Local Mart",
+      "name": "Snap Bite Kitchen",
       "rating": 4.6,
       "ratingCount": 88,
       "commissionRate": 7,
+      "cuisineTags": [
+        "fast-food",
+        "south-indian"
+      ],
       "lng": 79.9186027,
       "lat": 13.1425869,
       "address": {
         "city": "Tiruvallur",
         "state": "TN",
         "country": "IN"
-      }
+      },
+      "imageUrl": "https://images.unsplash.com/photo-1550547660-d9450f859349?w=400&h=400&fit=crop"
     }
   ],
   "products": [

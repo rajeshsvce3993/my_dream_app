@@ -19,6 +19,7 @@ export function HeaderCartButton() {
     queryFn: () => apiRequest<{ lines: Array<{ quantity: number }> }>('/cart'),
     enabled: hasToken === true,
     retry: false,
+    staleTime: 30_000,
   });
   const count = cart.data?.lines.reduce((s, l) => s + l.quantity, 0) ?? 0;
   const { addedPulse } = useCartFeedback();

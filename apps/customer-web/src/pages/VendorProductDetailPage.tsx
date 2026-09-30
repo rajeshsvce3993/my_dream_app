@@ -1,4 +1,4 @@
-import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
+import { useQuery } from '@tanstack/react-query';
 import { Link, useParams } from 'react-router-dom';
 import { useState } from 'react';
 import { apiRequest } from '../api/client';
@@ -6,6 +6,7 @@ import { useLocationContext } from '../context/LocationContext';
 import { useLocale } from '../context/LocaleContext';
 import { useBrand } from '../hooks/useBrand';
 import { formatMoney } from '../lib/format';
+import { useAddToCartFlow } from '../components/AddToCartFlowProvider';
 
 type VendorProductDetail = {
   vendorProductId: string;
@@ -30,7 +31,7 @@ export function VendorProductDetailPage() {
   const { query } = useLocationContext();
   const { tName } = useLocale();
   const { currency } = useBrand();
-  const qc = useQueryClient();
+  const { startAddToCart, isPending } = useAddToCartFlow();
   const [qty, setQty] = useState(1);
 
   const detail = useQuery({
@@ -42,29 +43,13 @@ export function VendorProductDetailPage() {
     enabled: Boolean(vendorId && vendorProductId),
   });
 
-  const addToCart = useMutation({
-    mutationFn: () =>
-      apiRequest('/cart/items', {
-        method: 'POST',
-        body: JSON.stringify({
-          vendorId,
-          productId: detail.data?.productId,
-          variantId: detail.data?.variantId,
-          quantity: qty,
-          lng: query.lng,
-          lat: query.lat,
-        }),
-      }),
-    onSuccess: () => qc.invalidateQueries({ queryKey: ['cart'] }),
-  });
-
   if (!detail.data) return <p>Loading…</p>;
   const p = detail.data;
 
   return (
     <div className="qc-product-detail">
       <nav className="fm-breadcrumbs">
-        <Link to="/stores">Stores</Link>
+        <Link to="/restaurants">Restaurants</Link>
         <span>›</span>
         <Link to={`/vendors/${vendorId}`}>{p.vendorName}</Link>
         <span>›</span>
@@ -79,7 +64,7 @@ export function VendorProductDetailPage() {
           {p.brand ? <span className="qc-caption">{p.brand}</span> : null}
           <h1>{tName(p.name)}</h1>
           <p className="qc-sold-by">
-            Sold by <Link to={`/vendors/${vendorId}`}>{p.vendorName}</Link>
+            From <Link to={`/vendors/${vendorId}`}>{p.vendorName}</Link>
           </p>
           <div className="qc-price-row">
             <span className="qc-price qc-price--lg">{formatMoney(currency, p.finalUnitPrice)}</span>
@@ -105,14 +90,21 @@ export function VendorProductDetailPage() {
           <button
             type="button"
             className="btn btn--primary qc-add-cart"
-            disabled={!p.inStock || addToCart.isPending}
-            onClick={() => addToCart.mutate()}
+            disabled={!p.inStock || isPending}
+            onClick={() =>
+              void startAddToCart({
+                productId: p.productId,
+                variantId: p.variantId,
+                quantity: qty,
+                productName: p.name.en,
+                contextVendorId: vendorId,
+                contextVendorName: p.vendorName,
+                skipVendorCompare: true,
+              })
+            }
           >
-            Add to cart
+            {isPending ? 'Adding…' : 'Add to cart'}
           </button>
-          <p className="qc-caption">
-            <Link to={`/products/${p.productId}`}>Compare other vendors for this product</Link>
-          </p>
           {p.description?.en ? <p>{tName(p.description as { en: string; ta?: string })}</p> : null}
         </div>
       </div>

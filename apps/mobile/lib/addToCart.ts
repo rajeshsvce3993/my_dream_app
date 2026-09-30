@@ -29,6 +29,7 @@ export async function addCartItem(input: {
   quantity: number;
   location: Pick<AppLocation, 'lng' | 'lat'>;
   deferAvailability?: boolean;
+  replaceCart?: boolean;
 }): Promise<void> {
   await ensureSignedInForCart();
   await apiRequest('/cart/items', {
@@ -42,6 +43,7 @@ export async function addCartItem(input: {
       lng: input.location.lng,
       lat: input.location.lat,
       deferAvailability: input.deferAvailability,
+      replaceCart: input.replaceCart,
     }),
   });
 }

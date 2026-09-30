@@ -65,7 +65,9 @@ export function ConfigurationPage() {
       <p style={{ maxWidth: 720, marginBottom: 24 }}>
         Public keys are exposed to the customer web and mobile apps via{' '}
         <code>/configuration/public</code>. Home layout, promos, and mobile copy are driven by{' '}
-        <code>home.*</code> and <code>mobile.*</code> keys. Customer OTP is configured under{' '}
+        <code>home.*</code> and <code>mobile.*</code> keys. Home business lines (food, groceries, etc.) are
+        managed on <Link to="/home-verticals">Home verticals</Link> (<code>home.verticals</code>). Customer OTP is
+        configured under{' '}
         <strong>auth</strong> via <code>otp.settings</code> (provider, MSG91, limits). Secrets are redacted in
         this UI and are never exposed to mobile apps. Platform delivery zones (multiple lat/lng + radius) are
         managed on the <Link to="/delivery">Delivery</Link> page (<code>delivery.serviceAreas</code>); per-store

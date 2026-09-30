@@ -1,7 +1,7 @@
 import { useQuery } from '@tanstack/react-query';
 import { useState } from 'react';
-import { useNavigate } from 'react-router-dom';
-import { MapPin, Truck, Wallet } from 'lucide-react';
+import { Link, useNavigate } from 'react-router-dom';
+import { MapPin, Truck, Wallet, CreditCard, Smartphone } from 'lucide-react';
 import { apiRequest } from '../api/client';
 import { OrderSummary } from '../components/OrderSummary';
 import { useCart } from '../hooks/useCart';
@@ -18,6 +18,34 @@ type DeliveryOption = {
   fee: number;
 };
 
+type PaymentMethod = 'COD' | 'RAZORPAY' | 'STRIPE';
+
+const PAYMENT_OPTIONS: Array<{
+  id: PaymentMethod;
+  title: string;
+  subtitle: string;
+  icon: typeof Wallet;
+}> = [
+  {
+    id: 'COD',
+    title: 'Cash on Delivery',
+    subtitle: 'Pay when your order arrives',
+    icon: Wallet,
+  },
+  {
+    id: 'RAZORPAY',
+    title: 'UPI / Wallet',
+    subtitle: 'PhonePe, GPay, Paytm & more',
+    icon: Smartphone,
+  },
+  {
+    id: 'STRIPE',
+    title: 'Credit / Debit Card',
+    subtitle: 'Visa, Mastercard, RuPay',
+    icon: CreditCard,
+  },
+];
+
 export function CheckoutPage() {
   const navigate = useNavigate();
   const { tName } = useLocale();
@@ -26,6 +54,7 @@ export function CheckoutPage() {
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
   const [deliveryId, setDeliveryId] = useState('standard');
+  const [paymentMethod, setPaymentMethod] = useState<PaymentMethod>('COD');
   const cart = useCart();
 
   const config = useQuery({
@@ -45,11 +74,11 @@ export function CheckoutPage() {
         method: 'POST',
         body: JSON.stringify({
           idempotencyKey: crypto.randomUUID(),
-          paymentMethod: 'COD',
+          paymentMethod,
           deliveryAddress: {
             line1: location.line1 ?? location.label,
             city: location.city,
-            country: 'IN',
+            country: location.country ?? 'IN',
             lng: location.lng,
             lat: location.lat,
           },
@@ -101,6 +130,9 @@ export function CheckoutPage() {
                 <strong>Delivering to</strong>
                 <p>{location.label}</p>
                 <p className="fm-muted-text">{location.city}</p>
+                <Link to="/delivery-address" className="qc-caption">
+                  Change address
+                </Link>
               </div>
             </>
           ) : null}
@@ -110,7 +142,10 @@ export function CheckoutPage() {
               <h2>
                 <Truck size={20} style={{ verticalAlign: 'middle' }} /> Delivery method
               </h2>
-              {deliveryOptions.map((opt) => (
+              {(deliveryOptions.length
+                ? deliveryOptions
+                : [{ id: 'standard', label: { en: 'Standard delivery' }, fee: 0 }]
+              ).map((opt) => (
                 <label
                   key={opt.id}
                   className={`fm-radio-card ${deliveryId === opt.id ? 'selected' : ''}`}
@@ -123,9 +158,7 @@ export function CheckoutPage() {
                   />
                   <div>
                     <strong>{tName(opt.label)}</strong>
-                    <div className="fm-muted-text">
-                      {opt.fee === 0 ? 'Free' : `₹${opt.fee}`}
-                    </div>
+                    <div className="fm-muted-text">{opt.fee === 0 ? 'Free' : `₹${opt.fee}`}</div>
                   </div>
                 </label>
               ))}
@@ -137,17 +170,36 @@ export function CheckoutPage() {
               <h2>
                 <Wallet size={20} style={{ verticalAlign: 'middle' }} /> Payment
               </h2>
-              <div className="fm-radio-card selected">
-                <strong>Cash on delivery</strong>
-                <p className="fm-muted-text">Pay when your order arrives. Totals verified on the server.</p>
-              </div>
+              {PAYMENT_OPTIONS.map((opt) => {
+                const Icon = opt.icon;
+                return (
+                  <label
+                    key={opt.id}
+                    className={`fm-radio-card ${paymentMethod === opt.id ? 'selected' : ''}`}
+                  >
+                    <input
+                      type="radio"
+                      name="payment"
+                      checked={paymentMethod === opt.id}
+                      onChange={() => setPaymentMethod(opt.id)}
+                    />
+                    <Icon size={20} aria-hidden />
+                    <div>
+                      <strong>{opt.title}</strong>
+                      <div className="fm-muted-text">{opt.subtitle}</div>
+                    </div>
+                  </label>
+                );
+              })}
             </>
           ) : null}
 
           {step === 3 ? (
             <>
               <h2>Review & place order</h2>
-              <p className="fm-muted-text">Confirm your address and items, then place the order.</p>
+              <p className="fm-muted-text">
+                {PAYMENT_OPTIONS.find((p) => p.id === paymentMethod)?.title} · {location.label}
+              </p>
             </>
           ) : null}
 

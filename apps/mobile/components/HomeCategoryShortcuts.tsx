@@ -50,7 +50,7 @@ export function HomeCategoryShortcuts({
                 width: 46,
                 height: 46,
                 borderRadius: radius.full,
-                backgroundColor: '#EEF0F3',
+                backgroundColor: theme.surface,
                 alignItems: 'center',
                 justifyContent: 'center',
               }}

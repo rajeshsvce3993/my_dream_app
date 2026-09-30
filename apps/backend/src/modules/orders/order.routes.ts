@@ -30,10 +30,58 @@ orderRouter.get('/my', authenticate, async (req, res, next) => {
     const page = Math.max(1, Number(req.query.page) || 1);
     const limit = Math.min(50, Math.max(1, Number(req.query.limit) || 20));
     const [orders, total] = await Promise.all([
-      OrderModel.find({ customerId: customer._id }).sort({ createdAt: -1 }).skip((page - 1) * limit).limit(limit).lean(),
+      OrderModel.find({ customerId: customer._id })
+        .sort({ createdAt: -1 })
+        .skip((page - 1) * limit)
+        .limit(limit)
+        .lean(),
       OrderModel.countDocuments({ customerId: customer._id }),
     ]);
-    res.json(successResponse(orders, null, paginatedMeta(page, limit, total) as unknown as Record<string, unknown>));
+
+    const vendorIds = [...new Set(orders.flatMap((o) => o.items.map((i) => i.vendorId.toString())))];
+    const productIds = [...new Set(orders.flatMap((o) => o.items.map((i) => i.productId.toString())))];
+    const [vendorDocs, productDocs] = await Promise.all([
+      VendorModel.find({ _id: { $in: vendorIds } }).select('name').lean(),
+      ProductModel.find({ _id: { $in: productIds } })
+        .select('name images')
+        .lean(),
+    ]);
+    const vendorNameMap = new Map(vendorDocs.map((v) => [v._id.toString(), v.name]));
+    const productMap = new Map(productDocs.map((p) => [p._id.toString(), p]));
+
+    const summaries = orders.map((order) => {
+      const itemCount = order.items.reduce((s, i) => s + i.quantity, 0);
+      const vendorNames = [
+        ...new Set(
+          order.items
+            .map((i) => vendorNameMap.get(i.vendorId.toString()))
+            .filter((n): n is string => Boolean(n)),
+        ),
+      ];
+      const itemNames = order.items.map((i) => {
+        const product = productMap.get(i.productId.toString());
+        return product?.name?.en ?? 'Item';
+      });
+      const firstProduct = productMap.get(order.items[0]?.productId?.toString() ?? '');
+      const previewImageUrl =
+        firstProduct?.images?.find((img) => img.isPrimary)?.url ?? firstProduct?.images?.[0]?.url;
+
+      return {
+        _id: order._id,
+        orderNumber: order.orderNumber,
+        status: order.status,
+        grandTotal: order.grandTotal,
+        createdAt: order.createdAt,
+        itemCount,
+        restaurantName: vendorNames[0] ?? 'Restaurant',
+        restaurantNames: vendorNames,
+        itemPreview: itemNames.slice(0, 2).join(', '),
+        moreItemCount: Math.max(0, itemNames.length - 2),
+        previewImageUrl,
+      };
+    });
+
+    res.json(successResponse(summaries, null, paginatedMeta(page, limit, total) as unknown as Record<string, unknown>));
   } catch (err) {
     next(err);
   }

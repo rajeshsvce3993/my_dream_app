@@ -1,4 +1,5 @@
 import mongoose, { Schema, type Document, type Types } from 'mongoose';
+import type { DeliveryOnboardingDocuments } from '../onboarding/onboardingDocuments.js';
 
 export const DELIVERY_APPROVAL_STATUSES = ['PENDING', 'APPROVED', 'REJECTED'] as const;
 export type DeliveryApprovalStatus = (typeof DELIVERY_APPROVAL_STATUSES)[number];
@@ -17,11 +18,29 @@ export interface IDeliveryPerson {
   activeOrderId?: Types.ObjectId | null;
   vehicleType?: string;
   rejectionReason?: string;
+  documents?: DeliveryOnboardingDocuments;
   createdAt: Date;
   updatedAt: Date;
 }
 
 export interface IDeliveryPersonDocument extends IDeliveryPerson, Document {}
+
+const deliveryDocumentsSchema = new Schema(
+  {
+    aadhaarNumber: { type: String, trim: true },
+    drivingLicenseNumber: { type: String, trim: true, uppercase: true },
+    vehicleRcNumber: { type: String, trim: true, uppercase: true },
+    bankAccountName: { type: String, trim: true },
+    bankAccountNumber: { type: String, trim: true },
+    bankIfsc: { type: String, trim: true, uppercase: true },
+    insuranceNumber: { type: String, trim: true },
+    aadhaarDocUrl: { type: String, trim: true },
+    licenseDocUrl: { type: String, trim: true },
+    rcDocUrl: { type: String, trim: true },
+    photoUrl: { type: String, trim: true },
+  },
+  { _id: false },
+);
 
 const deliveryPersonSchema = new Schema<IDeliveryPersonDocument>(
   {
@@ -35,6 +54,7 @@ const deliveryPersonSchema = new Schema<IDeliveryPersonDocument>(
     activeOrderId: { type: Schema.Types.ObjectId, ref: 'Order', default: null, index: true },
     vehicleType: { type: String },
     rejectionReason: { type: String },
+    documents: { type: deliveryDocumentsSchema },
   },
   { timestamps: true },
 );

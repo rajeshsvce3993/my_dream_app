@@ -11,6 +11,9 @@ export type ProductSummary = {
   imageUrl?: string;
   variantId?: string;
   recommendedVendorId?: string;
+  /** Present on vendor-store product cards from `/vendors/:id/products`. */
+  vendorId?: string;
+  vendorName?: string;
   displayPrice?: number;
   actualPrice?: number;
   finalUnitPrice?: number;
@@ -19,6 +22,7 @@ export type ProductSummary = {
   discountPercent?: number;
   labels?: string[];
   unitLabel?: string;
+  dietType?: 'veg' | 'nonveg';
   serviceableAtLocation?: boolean;
   vendorCount?: number;
   availabilityReason?: 'OUTSIDE_SERVICE_AREA' | 'NO_VENDORS_NEARBY' | 'IN_SERVICE_AREA';
@@ -30,14 +34,23 @@ type Props = {
   product: ProductSummary;
   currency?: string;
   unitLabel?: string;
+  cardWidth?: number;
+  imageHeight?: number;
   onAdd?: () => void;
 };
 
-export function ProductCardHorizontal({ product, currency = '₹', unitLabel, onAdd }: Props) {
+export function ProductCardHorizontal({
+  product,
+  currency = '₹',
+  unitLabel,
+  cardWidth = 140,
+  imageHeight = 100,
+  onAdd,
+}: Props) {
   const { isAddingProduct } = useAddToCartFlow();
   const displayPrice = resolveProductDisplayPrice(product);
   const dailyPick = product.labels?.includes('best_overall') || product.labels?.includes('best_price');
-  const adding = isAddingProduct(product.productId);
+  const adding = isAddingProduct(product.productId, product.recommendedVendorId);
 
   const handleAdd = () => {
     if (adding) return;
@@ -47,7 +60,7 @@ export function ProductCardHorizontal({ product, currency = '₹', unitLabel, on
   return (
     <View
       style={{
-        width: 140,
+        width: cardWidth,
         backgroundColor: theme.surface,
         borderRadius: radius.md,
         marginRight: spacing.md,
@@ -56,7 +69,12 @@ export function ProductCardHorizontal({ product, currency = '₹', unitLabel, on
     >
       <Pressable onPress={handleAdd} disabled={adding || !onAdd}>
         <View
-          style={{ height: 100, borderTopLeftRadius: radius.md, borderTopRightRadius: radius.md, overflow: 'hidden' }}
+          style={{
+            height: imageHeight,
+            borderTopLeftRadius: radius.md,
+            borderTopRightRadius: radius.md,
+            overflow: 'hidden',
+          }}
         >
           {product.imageUrl ? (
             <Image source={{ uri: product.imageUrl }} style={{ width: '100%', height: '100%' }} />

@@ -34,7 +34,8 @@ const envSchema = z.object({
   RAZORPAY_KEY_SECRET: z.string().optional(),
   RAZORPAY_WEBHOOK_SECRET: z.string().optional(),
   RATE_LIMIT_WINDOW_MS: z.coerce.number().default(900_000),
-  RATE_LIMIT_MAX: z.coerce.number().default(200),
+  /** Per IP; keep high in development — mobile polls cart/home often. */
+  RATE_LIMIT_MAX: z.coerce.number().default(2_000),
   LOG_LEVEL: z.enum(['fatal', 'error', 'warn', 'info', 'debug', 'trace']).default('info'),
   OTP_PROVIDER: z.enum(['msg91', 'mock']).default('mock'),
   TEST_OTP: z.string().optional(),

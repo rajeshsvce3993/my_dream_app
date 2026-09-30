@@ -32,6 +32,14 @@ export async function getCartForUser(userId: string) {
   return cart;
 }
 
+/** Removes all items from the customer's cart (used when switching restaurants). */
+export async function clearCartForUser(userId: string) {
+  const cart = await getCartForUser(userId);
+  cart.items = [] as typeof cart.items;
+  await cart.save();
+  return cart;
+}
+
 export async function addToCart(input: {
   userId: string;
   vendorId?: string;
@@ -42,6 +50,8 @@ export async function addToCart(input: {
   lng?: number;
   lat?: number;
   deferAvailability?: boolean;
+  /** When true, drop items from other restaurants before adding. */
+  replaceCart?: boolean;
 }) {
   if (input.quantity < 1) throw new BusinessRuleError('Invalid quantity');
 
@@ -132,6 +142,20 @@ export async function addToCart(input: {
   }
 
   const cart = await getCartForUser(input.userId);
+
+  // One restaurant per cart — never mix vendors.
+  const hasOtherVendor = cart.items.some((i) => i.vendorId.toString() !== vendorId);
+  if (hasOtherVendor) {
+    if (!input.replaceCart) {
+      throw new BusinessRuleError(
+        'CART_OTHER_RESTAURANT: Your cart has items from another restaurant. Clear your cart to order from this restaurant.',
+      );
+    }
+    cart.items = cart.items.filter(
+      (i) => i.vendorId.toString() === vendorId,
+    ) as typeof cart.items;
+  }
+
   const idx = cart.items.findIndex(
     (i) =>
       i.vendorId.toString() === vendorId &&

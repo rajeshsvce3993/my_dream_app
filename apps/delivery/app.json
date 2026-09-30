@@ -6,6 +6,17 @@
     "version": "1.0.0",
     "orientation": "portrait",
     "userInterfaceStyle": "automatic",
+    "backgroundColor": "#0F2430",
+    "splash": {
+      "backgroundColor": "#0F2430",
+      "resizeMode": "contain"
+    },
+    "android": {
+      "backgroundColor": "#0F2430"
+    },
+    "ios": {
+      "backgroundColor": "#0F2430"
+    },
     "plugins": ["expo-router"],
     "experiments": {
       "typedRoutes": true

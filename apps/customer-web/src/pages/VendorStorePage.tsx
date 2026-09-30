@@ -7,6 +7,7 @@ import { useLocationContext } from '../context/LocationContext';
 import { VendorProductCard, type VendorStoreProduct } from '../design-system/VendorProductCard';
 import { EmptyState } from '../design-system/EmptyState';
 import type { CustomerVendorCard } from './StoresPage';
+import { useQuickAddToCart } from '../lib/useQuickAddToCart';
 
 type VendorProductsResponse = {
   products: VendorStoreProduct[];
@@ -21,6 +22,10 @@ export function VendorStorePage() {
   const categoryId = searchParams.get('categoryId') ?? '';
   const sort = searchParams.get('sort') ?? 'recommended';
   const search = searchParams.get('search') ?? '';
+  const diet =
+    searchParams.get('diet') === 'veg' || searchParams.get('diet') === 'nonveg'
+      ? (searchParams.get('diet') as 'veg' | 'nonveg')
+      : '';
 
   const vendor = useQuery({
     queryKey: ['vendor', vendorId, query.lng, query.lat],
@@ -29,8 +34,10 @@ export function VendorStorePage() {
     enabled: Boolean(vendorId),
   });
 
+  const quickAdd = useQuickAddToCart(vendorId, vendor.data?.name);
+
   const products = useInfiniteQuery({
-    queryKey: ['vendor-products', vendorId, categoryId, sort, search, query.lng, query.lat],
+    queryKey: ['vendor-products', vendorId, categoryId, sort, search, diet, query.lng, query.lat],
     queryFn: ({ pageParam = 1 }) => {
       const params = new URLSearchParams({
         page: String(pageParam),
@@ -41,6 +48,7 @@ export function VendorStorePage() {
       });
       if (categoryId) params.set('categoryId', categoryId);
       if (search) params.set('search', search);
+      if (diet) params.set('diet', diet);
       return apiRequest<VendorProductsResponse>(`/vendors/${vendorId}/products?${params}`);
     },
     initialPageParam: 1,
@@ -62,15 +70,28 @@ export function VendorStorePage() {
     setSearchParams(next);
   }
 
+  function setDiet(next: '' | 'veg' | 'nonveg') {
+    const params = new URLSearchParams(searchParams);
+    if (next) params.set('diet', next);
+    else params.delete('diet');
+    setSearchParams(params);
+  }
+
   return (
     <div className="qc-vendor-store">
-      <Link to="/stores" className="qc-back-link">
-        <ArrowLeft size={18} /> All stores
+      <Link to="/restaurants" className="qc-back-link">
+        <ArrowLeft size={18} /> All restaurants
       </Link>
 
       {vendor.data ? (
         <header className="qc-vendor-hero">
-          <div className="qc-vendor-hero__logo">{vendor.data.name.slice(0, 1)}</div>
+          <div className="qc-vendor-hero__logo">
+            {vendor.data.imageUrl ? (
+              <img src={vendor.data.imageUrl} alt="" />
+            ) : (
+              vendor.data.name.slice(0, 1)
+            )}
+          </div>
           <div>
             <h1>{vendor.data.name}</h1>
             <div className="qc-store-card__meta">
@@ -98,10 +119,27 @@ export function VendorStorePage() {
         <input
           value={searchInput}
           onChange={(e) => setSearchInput(e.target.value)}
-          placeholder="Search this store"
-          aria-label="Search this store"
+          placeholder="Search this restaurant"
+          aria-label="Search this restaurant"
         />
       </form>
+
+      <div className="qc-diet-chips" style={{ marginBottom: 12 }}>
+        <button
+          type="button"
+          className={`qc-diet-chip qc-diet-chip--veg ${diet === 'veg' ? 'is-active' : ''}`}
+          onClick={() => setDiet(diet === 'veg' ? '' : 'veg')}
+        >
+          Veg
+        </button>
+        <button
+          type="button"
+          className={`qc-diet-chip qc-diet-chip--nonveg ${diet === 'nonveg' ? 'is-active' : ''}`}
+          onClick={() => setDiet(diet === 'nonveg' ? '' : 'nonveg')}
+        >
+          Non-veg
+        </button>
+      </div>
 
       <div className="qc-chip-row">
         <button
@@ -156,14 +194,32 @@ export function VendorStorePage() {
       {!products.isLoading && !allProducts.length ? (
         <EmptyState
           icon={PackageOpen}
-          title="No products"
-          description="Nothing matched your filters in this store."
+          title="No items"
+          description="Nothing matched your filters in this restaurant."
         />
       ) : null}
 
       <div className="qc-product-grid">
         {allProducts.map((p) => (
-          <VendorProductCard key={p.vendorProductId} product={p} vendorId={vendorId!} />
+          <VendorProductCard
+            key={p.vendorProductId}
+            product={p}
+            vendorId={vendorId!}
+            onAdd={() =>
+              void quickAdd.mutate({
+                productId: p.productId,
+                variantId: p.variantId,
+                name: p.name,
+                imageUrl: p.imageUrl,
+                finalUnitPrice: p.finalUnitPrice,
+                mrp: p.mrp,
+                vendorId,
+                vendorName: vendor.data?.name,
+                recommendedVendorId: vendorId,
+              })
+            }
+            adding={quickAdd.isAddingProduct(p.productId, vendorId)}
+          />
         ))}
       </div>
 

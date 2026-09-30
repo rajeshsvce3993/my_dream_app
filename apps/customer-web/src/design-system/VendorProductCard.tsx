@@ -7,6 +7,7 @@ import { useBrand } from '../hooks/useBrand';
 export type VendorStoreProduct = {
   vendorProductId: string;
   productId: string;
+  variantId?: string;
   name: { en: string; ta?: string };
   brand?: string;
   imageUrl?: string;
@@ -20,9 +21,13 @@ export type VendorStoreProduct = {
 export function VendorProductCard({
   product,
   vendorId,
+  onAdd,
+  adding,
 }: {
   product: VendorStoreProduct;
   vendorId: string;
+  onAdd?: () => void;
+  adding?: boolean;
 }) {
   const { tName } = useLocale();
   const { currency } = useBrand();
@@ -58,13 +63,25 @@ export function VendorProductCard({
           ) : null}
         </div>
       </Link>
-      <Link
-        to={`/vendors/${vendorId}/products/${product.vendorProductId}`}
-        className="qc-add-btn"
-        aria-label="View product"
-      >
-        <Plus size={20} />
-      </Link>
+      {onAdd ? (
+        <button
+          type="button"
+          className="qc-add-btn"
+          onClick={onAdd}
+          disabled={adding || !product.inStock}
+          aria-label="Add to cart"
+        >
+          {adding ? '…' : <Plus size={20} />}
+        </button>
+      ) : (
+        <Link
+          to={`/vendors/${vendorId}/products/${product.vendorProductId}`}
+          className="qc-add-btn"
+          aria-label="View product"
+        >
+          <Plus size={20} />
+        </Link>
+      )}
     </article>
   );
 }

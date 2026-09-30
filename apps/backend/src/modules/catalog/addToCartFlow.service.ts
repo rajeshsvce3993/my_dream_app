@@ -34,6 +34,8 @@ export type AddToCartFlowResult = {
   recommendedVendorId: string | null;
   /** When false, client adds using autoVendorId without compare sheet. */
   showVendorCompare: boolean;
+  /** cheaper = other stores beat current restaurant; choose = pick among restaurants */
+  compareMode?: 'cheaper' | 'choose';
   autoVendorId: string | null;
   /** Selected / current store when compare is shown (not duplicated in vendors list). */
   referenceVendor?: AddToCartFlowVendorOffer;
@@ -173,12 +175,22 @@ export async function evaluateAddToCartFlow(input: {
   const referenceVendor =
     pick.autoVendorId != null ? vendors.find((v) => v.vendorId === pick.autoVendorId) : undefined;
 
-  const responseVendors =
-    pick.showVendorCompare && referenceVendor
+  // Choose mode: list all nearby restaurants. Cheaper mode: only better-priced ones.
+  // Always keep the context restaurant in the list so clients can add it directly.
+  let responseVendors =
+    pick.mode === 'cheaper' && referenceVendor
       ? filterCheaperVendorOffers(vendors, referenceVendor.vendorId)
-      : vendors;
+      : [...vendors].sort((a, b) => a.finalUnitPrice - b.finalUnitPrice);
 
-  if (pick.showVendorCompare && referenceVendor && responseVendors.length === 0) {
+  if (
+    input.contextVendorId &&
+    referenceVendor &&
+    !responseVendors.some((v) => v.vendorId === input.contextVendorId)
+  ) {
+    responseVendors = [referenceVendor, ...responseVendors];
+  }
+
+  if (pick.showVendorCompare && pick.mode === 'cheaper' && referenceVendor && responseVendors.length === 0) {
     return {
       ...base,
       status: 'SELECT_VENDOR',
@@ -198,8 +210,9 @@ export async function evaluateAddToCartFlow(input: {
     vendors: responseVendors,
     recommendedVendorId,
     showVendorCompare: pick.showVendorCompare,
+    compareMode: pick.mode === 'none' ? undefined : pick.mode,
     autoVendorId: pick.autoVendorId,
-    referenceVendor: pick.showVendorCompare ? referenceVendor : undefined,
+    referenceVendor: pick.mode === 'cheaper' ? referenceVendor : undefined,
     canDeferAvailability: false,
   };
 }

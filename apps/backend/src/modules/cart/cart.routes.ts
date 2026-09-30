@@ -3,7 +3,7 @@ import { z } from 'zod';
 import { validate } from '../../common/middleware/validate.js';
 import { successResponse } from '../../common/types/api.js';
 import { authenticate } from '../auth/auth.middleware.js';
-import { addToCart, getCartForUser, recalculateCart } from './cart.service.js';
+import { addToCart, clearCartForUser, getCartForUser, recalculateCart } from './cart.service.js';
 import { CartModel } from './cart.model.js';
 import { getOrCreateCustomerId } from './cart.service.js';
 
@@ -14,6 +14,16 @@ cartRouter.use(authenticate);
 cartRouter.get('/', async (req, res, next) => {
   try {
     const cart = await getCartForUser(req.auth!.sub);
+    const calculated = await recalculateCart(cart._id.toString());
+    res.json(successResponse(calculated));
+  } catch (err) {
+    next(err);
+  }
+});
+
+cartRouter.delete('/', async (req, res, next) => {
+  try {
+    const cart = await clearCartForUser(req.auth!.sub);
     const calculated = await recalculateCart(cart._id.toString());
     res.json(successResponse(calculated));
   } catch (err) {
@@ -34,6 +44,7 @@ cartRouter.post(
         lng: z.number().optional(),
         lat: z.number().optional(),
         deferAvailability: z.boolean().optional(),
+        replaceCart: z.boolean().optional(),
       })
       .refine((b) => Boolean(b.deferAvailability) || Boolean(b.vendorId), {
         message: 'vendorId is required unless deferAvailability is true',

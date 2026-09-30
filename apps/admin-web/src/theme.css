@@ -1,5 +1,36 @@
 @import '../../../packages/design-tokens/tokens.css';
 
 :root {
-  font-family: Inter, system-ui, sans-serif;
+  font-family: var(--font-family);
+  --admin-header: var(--color-background-header);
+  --admin-on-header: var(--color-on-header);
+  --admin-on-header-muted: #9bb8c6;
+  --admin-accent: var(--color-brand-accent);
+  --admin-panel: var(--color-surface-elevated);
+  --admin-panel-soft: var(--color-surface);
+  --gradient-brand-vertical: linear-gradient(180deg, #3e8a9a 0%, #163447 100%);
+  --color-neutral-bg: #e8e0d6;
+}
+
+* {
+  box-sizing: border-box;
+}
+
+body {
+  margin: 0;
+  background: var(--fm-bg);
+  color: var(--color-text-primary);
+  font-family: var(--font-family);
+  -webkit-font-smoothing: antialiased;
+}
+
+h1,
+h2,
+h3 {
+  letter-spacing: -0.02em;
+  color: var(--color-text-primary);
+}
+
+a {
+  color: var(--admin-accent);
 }

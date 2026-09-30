@@ -1,6 +1,6 @@
 import { useLocalSearchParams } from 'expo-router';
 import { CategoryProductListing } from '../../components/CategoryProductListing';
-import { StoresTabScreen } from '../../components/StoresTabScreen';
+import { RestaurantsScreen } from '../../components/RestaurantsScreen';
 import { normalizeRouteId } from '../../lib/categoryId';
 
 export default function StoreScreen() {
@@ -17,5 +17,5 @@ export default function StoreScreen() {
     return <CategoryProductListing initialCategoryId={categoryId} initialCategorySlug={slug} />;
   }
 
-  return <StoresTabScreen />;
+  return <RestaurantsScreen showBack={false} />;
 }

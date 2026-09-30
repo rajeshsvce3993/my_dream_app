@@ -3,6 +3,27 @@ import { Link, useParams } from 'react-router-dom';
 import { useEffect, useState } from 'react';
 import { apiRequest } from '../api/client';
 
+type VendorDocuments = {
+  ownerName?: string;
+  ownerPhone?: string;
+  ownerPan?: string;
+  gstin?: string;
+  gstExempt?: boolean;
+  fssaiLicense?: string;
+  fssaiExpiry?: string;
+  bankAccountName?: string;
+  bankAccountNumber?: string;
+  bankIfsc?: string;
+  idProofType?: string;
+  idProofNumber?: string;
+  fssaiDocUrl?: string;
+  gstDocUrl?: string;
+  panDocUrl?: string;
+  bankDocUrl?: string;
+  idProofDocUrl?: string;
+  shopPhotoUrl?: string;
+};
+
 type Vendor = {
   _id: string;
   code: string;
@@ -15,6 +36,13 @@ type Vendor = {
   deliveryRadiusKm?: number;
   serviceAreaRadiusKm?: number;
   serviceAreaWideDelivery?: boolean;
+  cuisineTags?: string[];
+  dietType?: 'veg' | 'nonveg' | 'both';
+  imageUrl?: string;
+  onboardingStatus?: string;
+  onboardingComplete?: boolean;
+  onboardingRejectionReason?: string;
+  documents?: VendorDocuments;
   location?: { coordinates: [number, number] };
   address?: {
     line1?: string;
@@ -36,10 +64,21 @@ type VendorProductRow = {
   variantId: { _id: string; name: { en: string }; sku: string };
 };
 
+const CUISINE_OPTIONS = [
+  { id: 'south-indian', label: 'South Indian' },
+  { id: 'chinese', label: 'Chinese' },
+  { id: 'fast-food', label: 'Fast Food' },
+];
+
+function discountPct(mrp: number, selling: number) {
+  if (!mrp || mrp <= selling) return 0;
+  return Math.round(((mrp - selling) / mrp) * 100);
+}
+
 export function VendorDetailPage() {
   const { id } = useParams();
   const qc = useQueryClient();
-  const [tab, setTab] = useState<'overview' | 'products'>('overview');
+  const [tab, setTab] = useState<'overview' | 'kyc' | 'products'>('overview');
   const [productId, setProductId] = useState('');
   const [variantId, setVariantId] = useState('');
   const [vendorPrice, setVendorPrice] = useState('100');
@@ -55,7 +94,15 @@ export function VendorDetailPage() {
   const [serviceAreaWideDelivery, setServiceAreaWideDelivery] = useState(false);
   const [city, setCity] = useState('');
   const [stateName, setStateName] = useState('');
+  const [cuisineTags, setCuisineTags] = useState<string[]>([]);
+  const [dietType, setDietType] = useState<'veg' | 'nonveg' | 'both'>('both');
+  const [imageUrl, setImageUrl] = useState('');
   const [saveMessage, setSaveMessage] = useState<string | null>(null);
+
+  const [editId, setEditId] = useState<string | null>(null);
+  const [editMrp, setEditMrp] = useState('');
+  const [editSelling, setEditSelling] = useState('');
+  const [editVendorPrice, setEditVendorPrice] = useState('');
 
   const vendor = useQuery({
     queryKey: ['vendor', id],
@@ -75,7 +122,16 @@ export function VendorDetailPage() {
     setServiceAreaWideDelivery(Boolean(v.serviceAreaWideDelivery));
     setCity(v.address?.city ?? '');
     setStateName(v.address?.state ?? '');
+    setCuisineTags(Array.isArray(v.cuisineTags) ? [...v.cuisineTags] : []);
+    setDietType(
+      v.dietType === 'veg' || v.dietType === 'nonveg' || v.dietType === 'both' ? v.dietType : 'both',
+    );
+    setImageUrl(v.imageUrl ?? '');
   }, [vendor.data]);
+
+  function toggleCuisine(tag: string) {
+    setCuisineTags((prev) => (prev.includes(tag) ? prev.filter((t) => t !== tag) : [...prev, tag]));
+  }
 
   const saveVendor = useMutation({
     mutationFn: () => {
@@ -94,6 +150,9 @@ export function VendorDetailPage() {
           deliveryRadiusKm: Number(deliveryRadiusKm) || 15,
           serviceAreaRadiusKm: Number(deliveryRadiusKm) || 15,
           serviceAreaWideDelivery,
+          cuisineTags,
+          dietType,
+          imageUrl: imageUrl.trim() || undefined,
           address: {
             city: city.trim() || undefined,
             state: stateName.trim() || undefined,
@@ -103,7 +162,7 @@ export function VendorDetailPage() {
       });
     },
     onSuccess: async () => {
-      setSaveMessage('Vendor saved. Mobile customers nearby will see this store when in range.');
+      setSaveMessage('Restaurant saved. Mobile customers will see updated name, cuisine, and location.');
       await qc.invalidateQueries({ queryKey: ['vendor', id] });
       await qc.invalidateQueries({ queryKey: ['vendors'] });
     },
@@ -112,7 +171,7 @@ export function VendorDetailPage() {
 
   const catalog = useQuery({
     queryKey: ['products-map'],
-    queryFn: () => apiRequest<Product[]>('/products?limit=100'),
+    queryFn: () => apiRequest<Product[]>('/products?limit=200'),
   });
 
   const productDetail = useQuery({
@@ -148,6 +207,22 @@ export function VendorDetailPage() {
     },
   });
 
+  const updatePrice = useMutation({
+    mutationFn: (input: { mappingId: string; mrp: number; sellingPrice: number; vendorPrice: number }) =>
+      apiRequest(`/vendor-products/${input.mappingId}`, {
+        method: 'PATCH',
+        body: JSON.stringify({
+          mrp: input.mrp,
+          sellingPrice: input.sellingPrice,
+          vendorPrice: input.vendorPrice,
+        }),
+      }),
+    onSuccess: async () => {
+      setEditId(null);
+      await qc.invalidateQueries({ queryKey: ['vendor-products', id] });
+    },
+  });
+
   const deleteVendor = useMutation({
     mutationFn: () => apiRequest(`/vendors/${id}`, { method: 'DELETE' }),
     onSuccess: async () => {
@@ -165,38 +240,146 @@ export function VendorDetailPage() {
     },
   });
 
-  if (vendor.isLoading || !vendor.data) return <p>Loading vendor…</p>;
+  if (vendor.isLoading || !vendor.data) return <p>Loading restaurant…</p>;
 
   return (
     <div>
       <p>
-        <Link to="/vendors">← Vendors</Link>
+        <Link to="/vendors">← Restaurants</Link>
       </p>
       <h1>{vendor.data.name}</h1>
       <p style={{ color: 'var(--fm-muted)' }}>
         {vendor.data.code} · ★ {vendor.data.rating} · {vendor.data.status}
+        {vendor.data.onboardingStatus ? ` · KYC ${vendor.data.onboardingStatus}` : ''}
+        {(vendor.data.cuisineTags ?? []).length
+          ? ` · ${(vendor.data.cuisineTags ?? []).join(', ')}`
+          : ''}
       </p>
 
-      <div className="panel" style={{ display: 'flex', gap: 8, marginBottom: 16 }}>
-        {(['overview', 'products'] as const).map((t) => (
+      <div className="panel" style={{ display: 'flex', gap: 8, marginBottom: 16, flexWrap: 'wrap' }}>
+        {(
+          [
+            ['overview', 'Details & cuisine'],
+            ['kyc', 'KYC documents'],
+            ['products', 'Menu & prices'],
+          ] as const
+        ).map(([t, label]) => (
           <button
             key={t}
             type="button"
             className={tab === t ? 'btn' : 'btn btn--ghost'}
             onClick={() => setTab(t)}
           >
-            {t === 'overview' ? 'Location & details' : 'Products'}
+            {label}
           </button>
         ))}
       </div>
 
+      {tab === 'kyc' ? (
+        <div className="panel form-grid">
+          <h2>Shop KYC</h2>
+          <p style={{ gridColumn: '1 / -1', color: 'var(--fm-muted)', fontSize: 14 }}>
+            Each shop is one vendor. Documents below are required for onboarding approval.
+          </p>
+          <label>
+            Onboarding status
+            <select
+              value={vendor.data.onboardingStatus ?? 'INCOMPLETE'}
+              onChange={(e) =>
+                apiRequest(`/vendors/${id}`, {
+                  method: 'PATCH',
+                  body: JSON.stringify({
+                    onboardingStatus: e.target.value,
+                    status:
+                      e.target.value === 'APPROVED'
+                        ? 'ACTIVE'
+                        : e.target.value === 'REJECTED'
+                          ? 'INACTIVE'
+                          : undefined,
+                  }),
+                }).then(async () => {
+                  await qc.invalidateQueries({ queryKey: ['vendor', id] });
+                  await qc.invalidateQueries({ queryKey: ['vendors'] });
+                })
+              }
+            >
+              <option value="INCOMPLETE">INCOMPLETE</option>
+              <option value="PENDING_REVIEW">PENDING_REVIEW</option>
+              <option value="APPROVED">APPROVED</option>
+              <option value="REJECTED">REJECTED</option>
+            </select>
+          </label>
+          <div style={{ gridColumn: '1 / -1' }}>
+            <strong>Owner</strong>
+            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill,minmax(200px,1fr))', gap: 8, marginTop: 8, fontSize: 14 }}>
+              <div>Name: {vendor.data.documents?.ownerName ?? '—'}</div>
+              <div>Phone: {vendor.data.documents?.ownerPhone ?? '—'}</div>
+              <div>PAN: {vendor.data.documents?.ownerPan ?? '—'}</div>
+              <div>ID: {vendor.data.documents?.idProofType ?? '—'} {vendor.data.documents?.idProofNumber ?? ''}</div>
+            </div>
+          </div>
+          <div style={{ gridColumn: '1 / -1' }}>
+            <strong>Licenses</strong>
+            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill,minmax(200px,1fr))', gap: 8, marginTop: 8, fontSize: 14 }}>
+              <div>FSSAI: {vendor.data.documents?.fssaiLicense ?? '—'}</div>
+              <div>FSSAI expiry: {vendor.data.documents?.fssaiExpiry ?? '—'}</div>
+              <div>
+                GSTIN:{' '}
+                {vendor.data.documents?.gstExempt
+                  ? 'Exempt'
+                  : (vendor.data.documents?.gstin ?? '—')}
+              </div>
+            </div>
+          </div>
+          <div style={{ gridColumn: '1 / -1' }}>
+            <strong>Bank payout</strong>
+            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill,minmax(200px,1fr))', gap: 8, marginTop: 8, fontSize: 14 }}>
+              <div>{vendor.data.documents?.bankAccountName ?? '—'}</div>
+              <div>A/C {vendor.data.documents?.bankAccountNumber ?? '—'}</div>
+              <div>IFSC {vendor.data.documents?.bankIfsc ?? '—'}</div>
+            </div>
+          </div>
+          <div style={{ gridColumn: '1 / -1', display: 'flex', flexWrap: 'wrap', gap: 12, fontSize: 14 }}>
+            {vendor.data.documents?.fssaiDocUrl ? (
+              <a href={vendor.data.documents.fssaiDocUrl} target="_blank" rel="noreferrer">
+                FSSAI scan
+              </a>
+            ) : null}
+            {vendor.data.documents?.gstDocUrl ? (
+              <a href={vendor.data.documents.gstDocUrl} target="_blank" rel="noreferrer">
+                GST scan
+              </a>
+            ) : null}
+            {vendor.data.documents?.panDocUrl ? (
+              <a href={vendor.data.documents.panDocUrl} target="_blank" rel="noreferrer">
+                PAN scan
+              </a>
+            ) : null}
+            {vendor.data.documents?.bankDocUrl ? (
+              <a href={vendor.data.documents.bankDocUrl} target="_blank" rel="noreferrer">
+                Bank proof
+              </a>
+            ) : null}
+            {vendor.data.documents?.idProofDocUrl ? (
+              <a href={vendor.data.documents.idProofDocUrl} target="_blank" rel="noreferrer">
+                ID proof
+              </a>
+            ) : null}
+            {vendor.data.documents?.shopPhotoUrl ? (
+              <a href={vendor.data.documents.shopPhotoUrl} target="_blank" rel="noreferrer">
+                Shop photo
+              </a>
+            ) : null}
+            {!vendor.data.documents ? <span className="muted">No KYC documents on file.</span> : null}
+          </div>
+        </div>
+      ) : null}
+
       {tab === 'overview' ? (
         <div className="panel form-grid">
-          <h2>Store location & delivery</h2>
+          <h2>Restaurant details</h2>
           <p style={{ gridColumn: '1 / -1', color: 'var(--fm-muted)', fontSize: 14 }}>
-            Customers in your platform service area see this vendor when they are within the delivery radius below,
-            unless <strong>Service-area delivery</strong> is enabled (no radius limit inside the zone). The store must
-            have active products.
+            All fields save to the database and drive the mobile restaurant list and cuisine filters.
           </p>
           <label>
             Display name
@@ -243,15 +426,50 @@ export function VendorDetailPage() {
             />
             <span>
               <strong>Service-area delivery (no radius limit)</strong>
-              <br />
-              <span style={{ color: 'var(--fm-muted)', fontSize: 13 }}>
-                Show this vendor and include its prices for any customer inside the platform delivery zone, even if they
-                are far from the store.
-              </span>
             </span>
           </label>
+          <fieldset style={{ gridColumn: '1 / -1', border: '1px solid var(--fm-border, #ddd)', padding: 12 }}>
+            <legend>Cuisine tags</legend>
+            <div style={{ display: 'flex', flexWrap: 'wrap', gap: 12 }}>
+              {CUISINE_OPTIONS.map((c) => (
+                <label key={c.id} style={{ display: 'flex', gap: 6, alignItems: 'center' }}>
+                  <input
+                    type="checkbox"
+                    checked={cuisineTags.includes(c.id)}
+                    onChange={() => toggleCuisine(c.id)}
+                  />
+                  {c.label}
+                </label>
+              ))}
+            </div>
+          </fieldset>
+          <label>
+            Diet type
+            <select value={dietType} onChange={(e) => setDietType(e.target.value as typeof dietType)}>
+              <option value="veg">Veg only</option>
+              <option value="nonveg">Non-veg only</option>
+              <option value="both">Veg & Non-veg</option>
+            </select>
+          </label>
+          <label style={{ gridColumn: '1 / -1' }}>
+            Image URL
+            <input
+              placeholder="https://… (shown on home & restaurants list)"
+              value={imageUrl}
+              onChange={(e) => setImageUrl(e.target.value)}
+            />
+          </label>
+          {imageUrl.trim() ? (
+            <div style={{ gridColumn: '1 / -1' }}>
+              <img
+                src={imageUrl.trim()}
+                alt=""
+                style={{ width: 96, height: 96, objectFit: 'cover', borderRadius: 12 }}
+              />
+            </div>
+          ) : null}
           {saveMessage ? (
-            <p style={{ gridColumn: '1 / -1', color: saveMessage.includes('saved') ? 'green' : 'crimson' }}>
+            <p style={{ gridColumn: '1 / -1', color: saveMessage.includes('saved') || saveMessage.includes('Restaurant') ? 'green' : 'crimson' }}>
               {saveMessage}
             </p>
           ) : null}
@@ -265,7 +483,7 @@ export function VendorDetailPage() {
                 saveVendor.mutate();
               }}
             >
-              {saveVendor.isPending ? 'Saving…' : 'Save vendor'}
+              {saveVendor.isPending ? 'Saving…' : 'Save restaurant'}
             </button>
             <button
               type="button"
@@ -274,7 +492,7 @@ export function VendorDetailPage() {
               onClick={() => {
                 if (
                   !window.confirm(
-                    'Deactivate this vendor? It will be hidden from customers. You can set status back to ACTIVE later.',
+                    'Deactivate this restaurant? It will be hidden from customers.',
                   )
                 ) {
                   return;
@@ -283,16 +501,22 @@ export function VendorDetailPage() {
                 deleteVendor.mutate();
               }}
             >
-              {deleteVendor.isPending ? 'Deactivating…' : 'Deactivate vendor'}
+              {deleteVendor.isPending ? 'Deactivating…' : 'Deactivate'}
             </button>
           </div>
         </div>
-      ) : (
+      ) : null}
+
+      {tab === 'products' ? (
         <>
           <div className="panel form-grid">
-            <h2>Add global product to vendor</h2>
+            <h2>Add menu item</h2>
+            <p style={{ gridColumn: '1 / -1', color: 'var(--fm-muted)', fontSize: 14 }}>
+              Map a catalog product to this restaurant. Selling price and MRP are per restaurant —
+              mobile shows discount from MRP − selling price.
+            </p>
             <label>
-              Global product
+              Product
               <select
                 value={productId}
                 onChange={(e) => {
@@ -300,7 +524,7 @@ export function VendorDetailPage() {
                   setVariantId('');
                 }}
               >
-                <option value="">Search / select product</option>
+                <option value="">Select product</option>
                 {(catalog.data ?? []).map((p) => (
                   <option key={p._id} value={p._id}>
                     {p.name.en} ({p.sku})
@@ -320,7 +544,7 @@ export function VendorDetailPage() {
               </select>
             </label>
             <label>
-              Vendor price
+              Vendor cost
               <input value={vendorPrice} onChange={(e) => setVendorPrice(e.target.value)} />
             </label>
             <label>
@@ -335,6 +559,10 @@ export function VendorDetailPage() {
               Inventory
               <input value={stock} onChange={(e) => setStock(e.target.value)} />
             </label>
+            <p style={{ gridColumn: '1 / -1', fontSize: 13, color: 'var(--fm-muted)' }}>
+              Preview discount:{' '}
+              <strong>{discountPct(Number(mrp) || 0, Number(sellingPrice) || 0)}% OFF</strong>
+            </p>
             <button
               className="btn"
               disabled={!productId || !variantId || createMapping.isPending}
@@ -357,41 +585,111 @@ export function VendorDetailPage() {
                 setVariantId('');
               }}
             >
-              Save mapping
+              Add to menu
             </button>
           </div>
 
-          <h2>Vendor catalog</h2>
+          <h2>Restaurant menu (from DB)</h2>
           <table>
             <thead>
               <tr>
                 <th>Product</th>
                 <th>Variant</th>
-                <th>Price</th>
+                <th>Selling</th>
                 <th>MRP</th>
+                <th>Discount</th>
                 <th>Active</th>
                 <th />
               </tr>
             </thead>
             <tbody>
-              {(vendorProducts.data ?? []).map((row) => (
-                <tr key={row._id}>
-                  <td>{row.productId.name.en}</td>
-                  <td>{row.variantId.name.en}</td>
-                  <td>₹{row.sellingPrice}</td>
-                  <td>₹{row.mrp}</td>
-                  <td>{row.isActive ? 'Yes' : 'No'}</td>
-                  <td>
-                    <button type="button" className="btn btn--ghost" onClick={() => removeMapping.mutate(row._id)}>
-                      Remove
-                    </button>
-                  </td>
-                </tr>
-              ))}
+              {(vendorProducts.data ?? []).map((row) => {
+                const editing = editId === row._id;
+                return (
+                  <tr key={row._id}>
+                    <td>{row.productId.name.en}</td>
+                    <td>{row.variantId.name.en}</td>
+                    <td>
+                      {editing ? (
+                        <input
+                          style={{ width: 80 }}
+                          value={editSelling}
+                          onChange={(e) => setEditSelling(e.target.value)}
+                        />
+                      ) : (
+                        `₹${row.sellingPrice}`
+                      )}
+                    </td>
+                    <td>
+                      {editing ? (
+                        <input
+                          style={{ width: 80 }}
+                          value={editMrp}
+                          onChange={(e) => setEditMrp(e.target.value)}
+                        />
+                      ) : (
+                        `₹${row.mrp}`
+                      )}
+                    </td>
+                    <td>
+                      {editing
+                        ? `${discountPct(Number(editMrp) || 0, Number(editSelling) || 0)}%`
+                        : `${discountPct(row.mrp, row.sellingPrice)}%`}
+                    </td>
+                    <td>{row.isActive ? 'Yes' : 'No'}</td>
+                    <td style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
+                      {editing ? (
+                        <>
+                          <button
+                            type="button"
+                            className="btn"
+                            disabled={updatePrice.isPending}
+                            onClick={() =>
+                              updatePrice.mutate({
+                                mappingId: row._id,
+                                mrp: Number(editMrp),
+                                sellingPrice: Number(editSelling),
+                                vendorPrice: Number(editVendorPrice) || Number(editSelling),
+                              })
+                            }
+                          >
+                            Save
+                          </button>
+                          <button type="button" className="btn btn--ghost" onClick={() => setEditId(null)}>
+                            Cancel
+                          </button>
+                        </>
+                      ) : (
+                        <>
+                          <button
+                            type="button"
+                            className="btn btn--ghost"
+                            onClick={() => {
+                              setEditId(row._id);
+                              setEditMrp(String(row.mrp));
+                              setEditSelling(String(row.sellingPrice));
+                              setEditVendorPrice(String(row.vendorPrice));
+                            }}
+                          >
+                            Edit price
+                          </button>
+                          <button
+                            type="button"
+                            className="btn btn--ghost"
+                            onClick={() => removeMapping.mutate(row._id)}
+                          >
+                            Remove
+                          </button>
+                        </>
+                      )}
+                    </td>
+                  </tr>
+                );
+              })}
             </tbody>
           </table>
         </>
-      )}
+      ) : null}
     </div>
   );
 }

@@ -14,6 +14,8 @@ export interface IProduct {
   weightGrams?: number;
   taxCategoryId?: Types.ObjectId;
   status: 'DRAFT' | 'ACTIVE' | 'INACTIVE';
+  /** Food diet marker for veg / non-veg filters. */
+  dietType?: 'veg' | 'nonveg';
   searchKeywords?: string[];
   seo?: { title?: { en?: string; ta?: string }; description?: { en?: string; ta?: string } };
   createdAt: Date;
@@ -45,6 +47,7 @@ const productSchema = new Schema<IProductDocument>(
     weightGrams: { type: Number },
     taxCategoryId: { type: Schema.Types.ObjectId, ref: 'TaxCategory' },
     status: { type: String, enum: ['DRAFT', 'ACTIVE', 'INACTIVE'], default: 'DRAFT', index: true },
+    dietType: { type: String, enum: ['veg', 'nonveg'], index: true },
     searchKeywords: [{ type: String }],
     seo: {
       title: localizedSchema,

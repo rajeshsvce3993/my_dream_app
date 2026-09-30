@@ -4,6 +4,7 @@ import { validate } from '../../common/middleware/validate.js';
 import { successResponse } from '../../common/types/api.js';
 import { authenticate, requireAnyRole, requirePermissions } from '../auth/auth.middleware.js';
 import { OrderModel } from '../orders/order.model.js';
+import { UserModel } from '../users/user.model.js';
 import {
   acceptOffer,
   markDelivered,
@@ -13,7 +14,16 @@ import {
 import { setAvailability, touchLastSeen, getDeliveryPersonByUserId } from './deliveryAvailability.service.js';
 import { loadOfferCard } from './deliveryDispatch.service.js';
 import { getEarnings, listDeliveryHistory } from './deliveryEarnings.service.js';
-import { createDeliveryPerson, listDeliveryPeople, updateDeliveryPerson } from './deliveryPersonAdmin.service.js';
+import {
+  createDeliveryPerson,
+  listDeliveryPeople,
+  updateDeliveryPerson,
+} from './deliveryPersonAdmin.service.js';
+import {
+  deliveryOnboardingDocumentsSchema,
+  indianPhoneRegex,
+  normalizeEmptyUrls,
+} from '../onboarding/onboardingDocuments.js';
 
 export const deliveryPersonRouter = Router();
 
@@ -33,8 +43,21 @@ deliveryPersonRouter.get('/me', authenticate, requireAnyRole('DELIVERY'), async 
         approvalStatus: person.approvalStatus,
         onboardingComplete: person.onboardingComplete,
         lastSeenAt: person.lastSeenAt,
+        vehicleType: person.vehicleType ?? null,
+        rejectionReason: person.rejectionReason ?? null,
         activeOrder: active,
         offer,
+        profile: await (async () => {
+          const user = await UserModel.findById(req.auth!.sub).select('firstName lastName email phone').lean();
+          return user
+            ? {
+                firstName: user.firstName,
+                lastName: user.lastName,
+                email: user.email,
+                phone: user.phone,
+              }
+            : null;
+        })(),
       }),
     );
   } catch (err) {
@@ -126,8 +149,14 @@ const createSchema = z.object({
   password: z.string().min(8).max(128),
   firstName: z.string().min(1).max(100),
   lastName: z.string().max(100).optional(),
-  phone: z.string().max(20).optional(),
-  vehicleType: z.string().max(40).optional(),
+  phone: z.string().trim().regex(indianPhoneRegex, 'Enter a valid 10-digit mobile number'),
+  vehicleType: z
+    .string()
+    .trim()
+    .min(2)
+    .max(40)
+    .transform((v) => v.toUpperCase()),
+  documents: deliveryOnboardingDocumentsSchema,
   approve: z.boolean().optional(),
 });
 
@@ -151,12 +180,18 @@ deliveryPersonRouter.post(
   validate({ body: createSchema }),
   async (req, res, next) => {
     try {
-      const created = await createDeliveryPerson(req.body);
+      const body = req.body as z.infer<typeof createSchema>;
+      const created = await createDeliveryPerson({
+        ...body,
+        documents: normalizeEmptyUrls(body.documents),
+      });
       res.status(201).json(
         successResponse({
           id: created.person._id,
           userId: created.user._id,
           email: created.user.email,
+          approvalStatus: created.person.approvalStatus,
+          onboardingComplete: created.person.onboardingComplete,
         }),
       );
     } catch (err) {
@@ -175,15 +210,29 @@ deliveryPersonRouter.patch(
       approvalStatus: z.enum(['PENDING', 'APPROVED', 'REJECTED']).optional(),
       onboardingComplete: z.boolean().optional(),
       isActive: z.boolean().optional(),
-      vehicleType: z.string().max(40).optional(),
+      vehicleType: z
+        .string()
+        .trim()
+        .min(2)
+        .max(40)
+        .transform((v) => v.toUpperCase())
+        .optional(),
       firstName: z.string().min(1).max(100).optional(),
       lastName: z.string().max(100).optional(),
       rejectionReason: z.string().max(300).optional(),
+      documents: deliveryOnboardingDocumentsSchema.partial().optional(),
     }),
   }),
   async (req, res, next) => {
     try {
-      const person = await updateDeliveryPerson(String(req.params.id), req.body);
+      const body = req.body as {
+        documents?: z.infer<typeof deliveryOnboardingDocumentsSchema>;
+        [key: string]: unknown;
+      };
+      const person = await updateDeliveryPerson(String(req.params.id), {
+        ...body,
+        documents: body.documents ? normalizeEmptyUrls(body.documents) : undefined,
+      });
       res.json(successResponse(person));
     } catch (err) {
       next(err);

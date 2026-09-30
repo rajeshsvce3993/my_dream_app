@@ -1,5 +1,6 @@
 import { ConflictError, NotFoundError } from '../../common/errors/AppError.js';
 import { hashPassword } from '../auth/auth.service.js';
+import type { DeliveryOnboardingDocuments } from '../onboarding/onboardingDocuments.js';
 import { OrderModel } from '../orders/order.model.js';
 import { RoleModel } from '../users/role.model.js';
 import { UserModel } from '../users/user.model.js';
@@ -11,8 +12,9 @@ export async function createDeliveryPerson(input: {
   password: string;
   firstName: string;
   lastName?: string;
-  phone?: string;
-  vehicleType?: string;
+  phone: string;
+  vehicleType: string;
+  documents: DeliveryOnboardingDocuments;
   approve?: boolean;
 }) {
   const existing = await UserModel.findOne({ email: input.email.toLowerCase() });
@@ -29,14 +31,17 @@ export async function createDeliveryPerson(input: {
     roleIds: [role._id],
     isActive: true,
     emailVerified: true,
+    phoneVerified: true,
   });
 
+  const approved = Boolean(input.approve);
   const person = await DeliveryPersonModel.create({
     userId: user._id,
-    approvalStatus: input.approve ? 'APPROVED' : 'PENDING',
-    onboardingComplete: Boolean(input.approve),
+    approvalStatus: approved ? 'APPROVED' : 'PENDING',
+    onboardingComplete: approved,
     availability: 'OFFLINE',
     vehicleType: input.vehicleType,
+    documents: input.documents,
   });
   return { user, person };
 }
@@ -76,6 +81,7 @@ export async function listDeliveryPeople() {
       onboardingComplete: person.onboardingComplete,
       lastSeenAt: person.lastSeenAt,
       vehicleType: person.vehicleType,
+      documents: person.documents ?? null,
       activeOrder: active ? { id: active._id, orderNumber: active.orderNumber, status: active.status } : null,
       todayDeliveries: todayCount,
       todayEarnings: earnings.today,
@@ -94,6 +100,7 @@ export async function updateDeliveryPerson(
     firstName?: string;
     lastName?: string;
     rejectionReason?: string;
+    documents?: Partial<DeliveryOnboardingDocuments>;
   },
 ) {
   const person = await DeliveryPersonModel.findById(id);
@@ -102,9 +109,17 @@ export async function updateDeliveryPerson(
   if (patch.onboardingComplete !== undefined) person.onboardingComplete = patch.onboardingComplete;
   if (patch.vehicleType !== undefined) person.vehicleType = patch.vehicleType;
   if (patch.rejectionReason !== undefined) person.rejectionReason = patch.rejectionReason;
+  if (patch.documents) {
+    person.documents = {
+      ...(person.documents ?? {}),
+      ...patch.documents,
+    } as DeliveryOnboardingDocuments;
+    person.onboardingComplete = true;
+  }
   if (patch.approvalStatus === 'REJECTED' || patch.isActive === false) {
     person.availability = 'OFFLINE';
     person.wentOfflineAt = new Date();
+    if (patch.approvalStatus === 'REJECTED') person.onboardingComplete = false;
   }
   if (patch.approvalStatus === 'APPROVED') person.onboardingComplete = true;
   await person.save();

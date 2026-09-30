@@ -13,6 +13,7 @@ import { useCartFeedback } from '../lib/cartFeedback';
 import { Modal, Pressable, ScrollView, Text, View } from 'react-native';
 import { addCartItem, ensureSignedInForCart, SignInRequiredError } from '../lib/addToCart';
 import { fetchAddToCartFlow, type AddToCartFlowResult, type AddToCartFlowVendor } from '../lib/addToCartFlowApi';
+import { confirmSingleRestaurantCart, isCartOtherRestaurantError, promptReplaceAfterConflict } from '../lib/singleRestaurantCart';
 import { VendorOfferCompareCard } from './VendorOfferCompareCard';
 import { clearPendingAddToCart, savePendingAddToCart } from '../lib/pendingAddToCart';
 import { theme, spacing, radius } from '../lib/theme';
@@ -25,17 +26,27 @@ type StartAddInput = {
   productName?: string;
   /** When adding from a vendor store screen, that store’s row shows “Continue”. */
   contextVendorId?: string;
+  /** Restaurant / store display name (for cart-replace message). */
+  contextVendorName?: string;
+  /** Dish-offer rows already show each restaurant’s price — skip compare sheet. */
+  skipVendorCompare?: boolean;
 };
 
 type CompareFlowState = AddToCartFlowResult & { contextVendorId?: string };
 
 type FlowContextValue = {
-  startAddToCart: (input: StartAddInput) => Promise<void>;
+  /** Returns true when the item was added to the cart. */
+  startAddToCart: (input: StartAddInput) => Promise<boolean>;
   isPending: boolean;
-  isAddingProduct: (productId: string) => boolean;
+  /** When vendorId is passed, only that restaurant row shows the loader. */
+  isAddingProduct: (productId: string, vendorId?: string) => boolean;
 };
 
 const FlowContext = createContext<FlowContextValue | null>(null);
+
+function addInFlightKey(productId: string, vendorId?: string) {
+  return vendorId ? `${productId}:${vendorId}` : productId;
+}
 
 export function useAddToCartFlow(): FlowContextValue {
   const ctx = useContext(FlowContext);
@@ -48,7 +59,7 @@ export function AddToCartFlowProvider({ children }: { children: ReactNode }) {
   const { location, hasSavedAddress } = useDeliveryAddress();
   const { notifyItemAdded } = useCartFeedback();
   const [compareFlow, setCompareFlow] = useState<CompareFlowState | null>(null);
-  const [activeProductId, setActiveProductId] = useState<string | null>(null);
+  const [activeAddKey, setActiveAddKey] = useState<string | null>(null);
   const addMetaRef = useRef<{ productId: string; productName?: string } | null>(null);
 
   const commitAdd = useMutation({
@@ -56,60 +67,114 @@ export function AddToCartFlowProvider({ children }: { children: ReactNode }) {
       productId: string;
       variantId: string;
       vendorId?: string;
+      vendorName?: string;
       vendorProductId?: string;
       quantity: number;
       deferAvailability?: boolean;
+      replaceCart?: boolean;
     }) => {
       if (!location) throw new Error('Delivery location required');
-      await addCartItem({
-        vendorId: input.vendorId,
-        productId: input.productId,
-        variantId: input.variantId,
-        quantity: input.quantity,
-        location,
-        vendorProductId: input.vendorProductId,
-        deferAvailability: input.deferAvailability,
-      });
+
+      let replaceCart = Boolean(input.replaceCart);
+
+      if (input.vendorId && !replaceCart) {
+        const confirm = await confirmSingleRestaurantCart({
+          vendorId: input.vendorId,
+          vendorName: input.vendorName,
+        });
+        if (!confirm.ok) {
+          const err = new Error('CART_REPLACE_CANCELLED');
+          err.name = 'CartReplaceCancelled';
+          throw err;
+        }
+        replaceCart = Boolean(confirm.replaceCart);
+      }
+
+      try {
+        await addCartItem({
+          vendorId: input.vendorId,
+          productId: input.productId,
+          variantId: input.variantId,
+          quantity: input.quantity,
+          location,
+          vendorProductId: input.vendorProductId,
+          deferAvailability: input.deferAvailability,
+          replaceCart,
+        });
+      } catch (err) {
+        if (!input.vendorId || !isCartOtherRestaurantError(err)) throw err;
+        const replace = await promptReplaceAfterConflict({ vendorName: input.vendorName });
+        if (!replace) {
+          const cancel = new Error('CART_REPLACE_CANCELLED');
+          cancel.name = 'CartReplaceCancelled';
+          throw cancel;
+        }
+        await addCartItem({
+          vendorId: input.vendorId,
+          productId: input.productId,
+          variantId: input.variantId,
+          quantity: input.quantity,
+          location,
+          vendorProductId: input.vendorProductId,
+          deferAvailability: input.deferAvailability,
+          replaceCart: true,
+        });
+      }
     },
     onSuccess: () => {
       if (addMetaRef.current) notifyItemAdded(addMetaRef.current);
       qc.invalidateQueries({ queryKey: ['mobile-cart'] });
       setCompareFlow(null);
-      setActiveProductId(null);
+      setActiveAddKey(null);
     },
-    onError: () => {
-      setActiveProductId(null);
+    onError: (err) => {
+      setActiveAddKey(null);
+      if (err instanceof Error && err.name === 'CartReplaceCancelled') return;
       /* availability is not blocked on add; checkout validates */
     },
   });
 
+  const addLockRef = useRef<Promise<unknown> | null>(null);
+
   const runFlow = useCallback(
-    async (input: StartAddInput) => {
+    async (input: StartAddInput): Promise<boolean> => {
+      // Serialize adds so two top-pick taps can't both see an empty cart.
+      const previous = addLockRef.current;
+      let release!: () => void;
+      const gate = new Promise<void>((resolve) => {
+        release = resolve;
+      });
+      addLockRef.current = gate;
+      if (previous) await previous.catch(() => undefined);
+
+      try {
       addMetaRef.current = {
         productId: input.productId,
         productName: input.productName,
       };
-      setActiveProductId(input.productId);
+      setActiveAddKey(addInFlightKey(input.productId, input.contextVendorId));
       try {
         await ensureSignedInForCart();
       } catch (e) {
         if (e instanceof SignInRequiredError) {
-          setActiveProductId(null);
-          return;
+          setActiveAddKey(null);
+          return false;
         }
-        setActiveProductId(null);
+        setActiveAddKey(null);
         throw e;
       }
 
       const safeCommit = async (
         payload: Parameters<typeof commitAdd.mutateAsync>[0],
-      ) => {
+      ): Promise<boolean> => {
         try {
           await commitAdd.mutateAsync(payload);
+          return true;
         } catch (e) {
-          setActiveProductId(null);
+          setActiveAddKey(null);
+          if (e instanceof Error && e.name === 'CartReplaceCancelled') return false;
           const msg = e instanceof Error ? e.message : '';
-          if (msg.includes('not available for delivery')) return;
+          if (msg.includes('not available for delivery')) return false;
           throw e;
         }
       };
@@ -120,9 +185,9 @@ export function AddToCartFlowProvider({ children }: { children: ReactNode }) {
           variantId: input.variantId,
           quantity: input.quantity ?? 1,
         });
-        setActiveProductId(null);
+        setActiveAddKey(null);
         router.push('/login-address');
-        return;
+        return false;
       }
 
       const flow = await fetchAddToCartFlow({
@@ -137,24 +202,42 @@ export function AddToCartFlowProvider({ children }: { children: ReactNode }) {
 
       // Outside service area: do not add (see Stores tab for messaging).
       if (flow.status === 'OUTSIDE_SERVICE_AREA') {
-        setActiveProductId(null);
-        return;
+        setActiveAddKey(null);
+        return false;
       }
 
       // In service area but no store offers this SKU — add anyway (availability checked at checkout).
       if (flow.status === 'NO_VENDORS') {
-        await safeCommit({
+        return safeCommit({
           productId: flow.productId,
           variantId: flow.variantId,
           quantity: flow.quantity,
           deferAvailability: true,
         });
-        return;
       }
 
       if (flow.status === 'SELECT_VENDOR') {
-        const pickVendor = (vendorId: string | null | undefined) =>
-          flow.vendors.find((v) => v.vendorId === vendorId) ?? flow.vendors[0];
+        // Prefer exact restaurant — never fall back to a different store.
+        const pickExactVendor = (vendorId: string | null | undefined) => {
+          if (!vendorId) return undefined;
+          return (
+            flow.vendors.find((v) => v.vendorId === vendorId) ??
+            (flow.referenceVendor?.vendorId === vendorId ? flow.referenceVendor : undefined)
+          );
+        };
+
+        // Per-restaurant offer rows already show price — add THAT store only.
+        if (input.skipVendorCompare && input.contextVendorId) {
+          const v = pickExactVendor(input.contextVendorId);
+          return safeCommit({
+            productId: flow.productId,
+            variantId: flow.variantId,
+            vendorId: input.contextVendorId,
+            vendorName: v?.vendorName ?? input.contextVendorName,
+            vendorProductId: v?.vendorProductId,
+            quantity: flow.quantity,
+          });
+        }
 
         const shouldCompare =
           flow.showVendorCompare === true ||
@@ -162,54 +245,58 @@ export function AddToCartFlowProvider({ children }: { children: ReactNode }) {
 
         if (shouldCompare && flow.vendors.length > 1) {
           setCompareFlow({ ...flow, contextVendorId: input.contextVendorId });
-          setActiveProductId(null);
-          return;
+          setActiveAddKey(null);
+          return false;
         }
 
-        const v = pickVendor(flow.autoVendorId ?? flow.recommendedVendorId);
+        const autoId = flow.autoVendorId ?? flow.recommendedVendorId;
+        const v = pickExactVendor(autoId) ?? flow.vendors[0];
         if (!v) {
-          setActiveProductId(null);
-          return;
+          setActiveAddKey(null);
+          return false;
         }
-        await safeCommit({
+        return safeCommit({
           productId: flow.productId,
           variantId: flow.variantId,
           vendorId: v.vendorId,
+          vendorName: v.vendorName ?? input.contextVendorName,
           vendorProductId: v.vendorProductId,
           quantity: flow.quantity,
         });
-        return;
       }
 
-      await safeCommit({
+      return safeCommit({
         productId: flow.productId,
         variantId: flow.variantId,
         quantity: flow.quantity,
         deferAvailability: true,
       });
+      } finally {
+        release();
+        if (addLockRef.current === gate) addLockRef.current = null;
+      }
     },
     [commitAdd, hasSavedAddress, location, notifyItemAdded],
   );
 
   const isAddingProduct = useCallback(
-    (productId: string) => activeProductId === productId,
-    [activeProductId],
+    (productId: string, vendorId?: string) =>
+      activeAddKey === addInFlightKey(productId, vendorId),
+    [activeAddKey],
   );
 
   const startAddToCart = useCallback(
-    async (input: StartAddInput) => {
-      await runFlow(input);
-    },
+    async (input: StartAddInput) => runFlow(input),
     [runFlow],
   );
 
   const value = useMemo(
     () => ({
       startAddToCart,
-      isPending: commitAdd.isPending || activeProductId != null,
+      isPending: commitAdd.isPending || activeAddKey != null,
       isAddingProduct,
     }),
-    [activeProductId, commitAdd.isPending, isAddingProduct, startAddToCart],
+    [activeAddKey, commitAdd.isPending, isAddingProduct, startAddToCart],
   );
 
   return (
@@ -222,11 +309,12 @@ export function AddToCartFlowProvider({ children }: { children: ReactNode }) {
         onSelect={(v) => {
           if (!compareFlow) return;
           addMetaRef.current = { productId: compareFlow.productId };
-          setActiveProductId(compareFlow.productId);
+          setActiveAddKey(addInFlightKey(compareFlow.productId, v.vendorId));
           commitAdd.mutate({
             productId: compareFlow.productId,
             variantId: compareFlow.variantId,
             vendorId: v.vendorId,
+            vendorName: v.vendorName,
             vendorProductId: v.vendorProductId,
             quantity: compareFlow.quantity,
           });
@@ -249,6 +337,13 @@ function CompareStoresModal({
 }) {
   const referenceVendor = flow?.referenceVendor;
   const vendors = flow?.vendors ?? [];
+  const isChoose = flow?.compareMode === 'choose' || (!referenceVendor && vendors.length > 0);
+  const title = isChoose ? 'Choose restaurant' : 'Better price nearby?';
+  const subtitle = isChoose
+    ? 'This dish is available at more than one restaurant near you.'
+    : referenceVendor
+      ? `${referenceVendor.vendorName} — ₹${referenceVendor.finalUnitPrice.toFixed(0)}. Other restaurants are cheaper:`
+      : 'Pick a restaurant below';
 
   return (
     <Modal visible={Boolean(flow)} animationType="slide" transparent onRequestClose={onClose}>
@@ -256,25 +351,20 @@ function CompareStoresModal({
         <View
           style={{
             maxHeight: '80%',
-            backgroundColor: theme.surface,
+            backgroundColor: theme.bg,
             borderTopLeftRadius: radius.lg,
             borderTopRightRadius: radius.lg,
             padding: spacing.lg,
           }}
         >
-          <Text style={{ fontSize: 20, fontWeight: '800', marginBottom: spacing.md }}>Lower prices elsewhere</Text>
-          {referenceVendor ? (
-            <Text style={{ color: theme.muted, marginBottom: spacing.sm, lineHeight: 20 }}>
-              Your store ({referenceVendor.vendorName}) — ₹{referenceVendor.finalUnitPrice.toFixed(0)}. These
-              stores offer a better price:
-            </Text>
-          ) : flow?.actualPrice ? (
-            <Text style={{ color: theme.muted, marginBottom: spacing.sm }}>
-              Actual price ₹{flow.actualPrice.toFixed(0)} — pick a store below
-            </Text>
-          ) : null}
+          <Text style={{ fontSize: 18, fontWeight: '800', marginBottom: spacing.xs, color: theme.text }}>
+            {title}
+          </Text>
+          <Text style={{ color: theme.muted, marginBottom: spacing.md, lineHeight: 20, fontSize: 13 }}>
+            {subtitle}
+          </Text>
           <ScrollView>
-            {vendors.map((v) => (
+            {vendors.map((v, index) => (
               <VendorOfferCompareCard
                 key={v.vendorId}
                 actualPrice={flow?.actualPrice}
@@ -288,7 +378,7 @@ function CompareStoresModal({
                   distanceKm: v.distanceKm,
                   rating: v.rating,
                   deliveryEstimateMinutes: v.deliveryEstimateMinutes,
-                  tag: 'LOWER PRICE',
+                  tag: isChoose ? (index === 0 ? 'BEST PRICE' : undefined) : 'LOWER PRICE',
                   footer: (
                     <Pressable
                       disabled={loading}
@@ -301,14 +391,16 @@ function CompareStoresModal({
                         opacity: loading ? 0.6 : 1,
                       }}
                     >
-                      <Text style={{ color: 'white', textAlign: 'center', fontWeight: '700' }}>Select store</Text>
+                      <Text style={{ color: 'white', textAlign: 'center', fontWeight: '700' }}>
+                        {isChoose ? 'Add from here' : 'Select store'}
+                      </Text>
                     </Pressable>
                   ),
                 }}
               />
             ))}
           </ScrollView>
-          {referenceVendor ? (
+          {referenceVendor && !isChoose ? (
             <Pressable
               disabled={loading}
               onPress={() => onSelect(referenceVendor)}
@@ -322,7 +414,7 @@ function CompareStoresModal({
               }}
             >
               <Text style={{ textAlign: 'center', color: theme.primary, fontWeight: '800' }}>
-                Continue with {referenceVendor.vendorName}
+                Keep {referenceVendor.vendorName}
               </Text>
             </Pressable>
           ) : null}
