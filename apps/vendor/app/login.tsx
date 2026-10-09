@@ -1,9 +1,8 @@
 import { useEffect } from 'react';
-import { ActivityIndicator, View } from 'react-native';
 import { router } from 'expo-router';
 import { VendorLoginForm } from '../components/VendorLoginForm';
+import { VendorSplash } from '../components/VendorSplash';
 import { useVendorSession } from '../lib/useVendorSession';
-import { theme } from '../lib/theme';
 
 export default function LoginScreen() {
   const session = useVendorSession();
@@ -15,11 +14,7 @@ export default function LoginScreen() {
   }, [session.ready, session.signedIn]);
 
   if (!session.ready || session.signedIn) {
-    return (
-      <View style={{ flex: 1, justifyContent: 'center', backgroundColor: theme.bg }}>
-        <ActivityIndicator color={theme.primary} />
-      </View>
-    );
+    return <VendorSplash />;
   }
 
   return <VendorLoginForm />;

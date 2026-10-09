@@ -6,7 +6,16 @@ import { theme } from '../lib/theme';
 import { AddToCartFlowProvider } from '../components/AddToCartFlowProvider';
 import { CartFeedbackProvider } from '../lib/cartFeedback';
 
-const queryClient = new QueryClient();
+const queryClient = new QueryClient({
+  defaultOptions: {
+    queries: {
+      staleTime: 30_000,
+      gcTime: 5 * 60_000,
+      refetchOnWindowFocus: false,
+      retry: 1,
+    },
+  },
+});
 
 export default function RootLayout() {
   return (

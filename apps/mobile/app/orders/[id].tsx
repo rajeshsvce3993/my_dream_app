@@ -14,6 +14,7 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { OrderPlacedCelebration } from '../../components/OrderPlacedCelebration';
 import { Ionicons } from '@expo/vector-icons';
 import { OrderTimeline } from '../../components/OrderTimeline';
+import { deliveryPartnerLine } from '../../lib/orderDetailTypes';
 import { apiRequest } from '../../lib/api';
 import { formatMoney } from '../../lib/format';
 import { theme, spacing, radius } from '../../lib/theme';
@@ -28,9 +29,25 @@ type OrderDetail = {
     createdAt: string;
     timeline: Array<{ status: string; at: string }>;
   };
-  items: Array<{ quantity: number; productName?: { en: string }; imageUrl?: string }>;
-  tracking?: { partner: string; trackingId: string };
+  vendorOrders?: Array<{ vendorName?: string }>;
+  items: Array<{ quantity: number; productName?: { en: string }; imageUrl?: string; vendorName?: string }>;
+  tracking?: {
+    partner: string;
+    trackingId: string;
+    assignedPartner?: { name?: string; phone?: string } | null;
+  };
 };
+
+function restaurantLabel(detail: OrderDetail) {
+  const fromVendors = (detail.vendorOrders ?? [])
+    .map((vendor) => vendor.vendorName)
+    .filter((name): name is string => Boolean(name));
+  const fromItems = detail.items
+    .map((item) => item.vendorName)
+    .filter((name): name is string => Boolean(name));
+  const names = [...new Set(fromVendors.length ? fromVendors : fromItems)];
+  return names.join(', ');
+}
 
 const STATUS_COPY: Record<string, { title: string; subtitle: string }> = {
   PENDING_PAYMENT: { title: 'Awaiting payment', subtitle: 'Complete payment to confirm your order' },
@@ -71,7 +88,7 @@ export default function OrderTrackingScreen() {
     queryFn: () => apiRequest<OrderDetail>(`/orders/my/${id}`),
     enabled: Boolean(id),
     retry: false,
-    refetchInterval: 30_000,
+    refetchInterval: 5000,
   });
 
   if (detail.isError) {
@@ -97,6 +114,8 @@ export default function OrderTrackingScreen() {
   }
 
   const { order, tracking, items } = detail.data;
+  const partner = deliveryPartnerLine(order.status, tracking?.assignedPartner?.name);
+  const restaurant = restaurantLabel(detail.data);
   const eta = etaMinutes(order.status);
   const copy = STATUS_COPY[order.status] ?? {
     title: statusLabel(order.status),
@@ -146,7 +165,23 @@ export default function OrderTrackingScreen() {
               />
             </View>
             <View style={{ flex: 1, minWidth: 0 }}>
-              <Text style={{ fontSize: 15, fontWeight: '800', color: theme.text, letterSpacing: -0.2 }}>
+              {restaurant ? (
+                <Text
+                  style={{ fontSize: 15, fontWeight: '800', color: theme.text, letterSpacing: -0.2 }}
+                  numberOfLines={2}
+                >
+                  {restaurant}
+                </Text>
+              ) : null}
+              <Text
+                style={{
+                  fontSize: restaurant ? 13 : 15,
+                  fontWeight: '800',
+                  color: restaurant ? theme.muted : theme.text,
+                  letterSpacing: -0.2,
+                  marginTop: restaurant ? 2 : 0,
+                }}
+              >
                 {copy.title}
               </Text>
               <Text style={{ fontSize: 12, color: theme.muted, marginTop: 2, lineHeight: 16 }}>
@@ -186,35 +221,38 @@ export default function OrderTrackingScreen() {
           <OrderTimeline current={order.status} timeline={order.timeline} />
         </View>
 
-        {tracking ? (
-          <>
-            <SectionLabel>Delivery partner</SectionLabel>
-            <View style={styles.card}>
-              <View style={{ flexDirection: 'row', alignItems: 'center', gap: 10 }}>
-                <View
-                  style={{
-                    width: 34,
-                    height: 34,
-                    borderRadius: 8,
-                    backgroundColor: theme.neutralSoft,
-                    alignItems: 'center',
-                    justifyContent: 'center',
-                  }}
-                >
-                  <Ionicons name="bicycle-outline" size={18} color={theme.primary} />
-                </View>
-                <View style={{ flex: 1 }}>
-                  <Text style={{ fontWeight: '700', fontSize: 13, color: theme.text }}>
-                    {tracking.partner}
-                  </Text>
-                  <Text style={{ fontSize: 11, color: theme.muted, marginTop: 1 }}>
-                    ID · {tracking.trackingId}
-                  </Text>
-                </View>
-              </View>
+        <SectionLabel>Delivery partner</SectionLabel>
+        <View style={styles.card}>
+          <View style={{ flexDirection: 'row', alignItems: 'center', gap: 10 }}>
+            <View
+              style={{
+                width: 34,
+                height: 34,
+                borderRadius: 8,
+                backgroundColor: theme.neutralSoft,
+                alignItems: 'center',
+                justifyContent: 'center',
+              }}
+            >
+              <Ionicons name="bicycle-outline" size={18} color={theme.primary} />
             </View>
-          </>
-        ) : null}
+            <View style={{ flex: 1 }}>
+              {partner.name ? (
+                <Text style={{ fontWeight: '700', fontSize: 13, color: theme.text }}>{partner.name}</Text>
+              ) : null}
+              <Text
+                style={{
+                  fontSize: partner.name ? 11 : 12,
+                  color: theme.muted,
+                  marginTop: partner.name ? 1 : 0,
+                  lineHeight: 16,
+                }}
+              >
+                {partner.message}
+              </Text>
+            </View>
+          </View>
+        </View>
 
         {/* Items */}
         <SectionLabel>

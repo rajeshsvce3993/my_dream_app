@@ -7,14 +7,24 @@ type ApiResponse<T> =
 
 let refreshInFlight: Promise<boolean> | null = null;
 
+let accessTokenCache: string | null | undefined;
+
 export async function setTokens(access: string, refresh: string) {
+  accessTokenCache = access;
   await SecureStore.setItemAsync('accessToken', access);
   await SecureStore.setItemAsync('refreshToken', refresh);
 }
 
 export async function clearTokens() {
+  accessTokenCache = null;
   await SecureStore.deleteItemAsync('accessToken');
   await SecureStore.deleteItemAsync('refreshToken');
+}
+
+async function readAccessToken(): Promise<string | null> {
+  if (accessTokenCache !== undefined) return accessTokenCache;
+  accessTokenCache = await SecureStore.getItemAsync('accessToken');
+  return accessTokenCache;
 }
 
 async function refreshAccessToken(): Promise<boolean> {
@@ -53,7 +63,7 @@ async function authorizedFetch(path: string, init: RequestInit): Promise<Respons
     headers.set('Content-Type', 'application/json');
   }
 
-  const token = await SecureStore.getItemAsync('accessToken');
+  const token = await readAccessToken();
   if (token) headers.set('Authorization', `Bearer ${token}`);
 
   let response = await fetch(`${apiBase}${path}`, { ...init, headers });
@@ -62,7 +72,7 @@ async function authorizedFetch(path: string, init: RequestInit): Promise<Respons
   if (response.status === 401 && !isRefreshCall) {
     const refreshed = await refreshAccessToken();
     if (refreshed) {
-      const newToken = await SecureStore.getItemAsync('accessToken');
+      const newToken = await readAccessToken();
       if (newToken) headers.set('Authorization', `Bearer ${newToken}`);
       else headers.delete('Authorization');
       response = await fetch(`${apiBase}${path}`, { ...init, headers });

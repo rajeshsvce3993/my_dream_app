@@ -18,7 +18,7 @@ export interface IVendorStaffDocument extends IVendorStaff, Document {}
 const vendorStaffSchema = new Schema<IVendorStaffDocument>(
   {
     userId: { type: Schema.Types.ObjectId, ref: 'User', required: true, unique: true, index: true },
-    vendorId: { type: Schema.Types.ObjectId, ref: 'Vendor', required: true, index: true },
+    vendorId: { type: Schema.Types.ObjectId, ref: 'Vendor', required: true, unique: true, index: true },
     approvalStatus: { type: String, enum: VENDOR_APPROVAL_STATUSES, default: 'PENDING', index: true },
     acceptingOrders: { type: Boolean, default: true, index: true },
     rejectionReason: { type: String },

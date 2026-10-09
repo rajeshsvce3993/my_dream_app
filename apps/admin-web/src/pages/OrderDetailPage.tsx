@@ -30,6 +30,7 @@ type AdminOrderDetail = {
     subtotal: number;
     taxTotal: number;
     shippingTotal: number;
+    platformFee?: number;
     discountTotal: number;
     currency: string;
     createdAt: string;
@@ -284,20 +285,20 @@ export function OrderDetailPage() {
         <table>
           <tbody>
             <tr>
-              <td>Subtotal</td>
-              <td>{formatMoney(currency, order.subtotal)}</td>
+              <td>Item total</td>
+              <td>{formatMoney(currency, Math.max(0, order.subtotal - order.taxTotal))}</td>
             </tr>
             <tr>
               <td>Discount</td>
               <td>{formatMoney(currency, order.discountTotal)}</td>
             </tr>
             <tr>
-              <td>Tax</td>
-              <td>{formatMoney(currency, order.taxTotal)}</td>
+              <td>Delivery charges</td>
+              <td>{formatMoney(currency, order.shippingTotal + (order.platformFee ?? 0))}</td>
             </tr>
             <tr>
-              <td>Delivery</td>
-              <td>{formatMoney(currency, order.shippingTotal)}</td>
+              <td>GST</td>
+              <td>{formatMoney(currency, order.taxTotal)}</td>
             </tr>
             <tr>
               <td>

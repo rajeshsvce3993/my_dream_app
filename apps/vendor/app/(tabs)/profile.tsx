@@ -97,30 +97,37 @@ export default function ProfileScreen() {
             <View style={styles.card}>
               <Text style={styles.sectionLabel}>Accepting orders</Text>
               <Text style={styles.bodyMuted}>
-                {data.acceptingOrders
+                {shopOpen
                   ? 'Customers can place new orders at your shop.'
-                  : 'New orders are paused until you open again.'}
+                  : data.vendor?.status === 'ACTIVE'
+                    ? 'New orders are paused until you open again.'
+                    : 'This shop is inactive, so it stays closed.'}
               </Text>
               <Pressable
-                onPress={() => toggleOrders.mutate(!data.acceptingOrders)}
-                disabled={toggleOrders.isPending || data.approvalStatus !== 'APPROVED'}
+                onPress={() => {
+                  if (data.vendor?.status !== 'ACTIVE') return;
+                  toggleOrders.mutate(!shopOpen);
+                }}
+                disabled={
+                  toggleOrders.isPending ||
+                  data.approvalStatus !== 'APPROVED' ||
+                  data.vendor?.status !== 'ACTIVE'
+                }
                 style={[
                   styles.toggleBtn,
-                  data.acceptingOrders ? styles.toggleOff : styles.toggleOn,
-                  (toggleOrders.isPending || data.approvalStatus !== 'APPROVED') && { opacity: 0.7 },
+                  shopOpen ? styles.toggleOff : styles.toggleOn,
+                  (toggleOrders.isPending ||
+                    data.approvalStatus !== 'APPROVED' ||
+                    data.vendor?.status !== 'ACTIVE') && { opacity: 0.7 },
                 ]}
               >
                 <Text
                   style={[
                     styles.toggleText,
-                    data.acceptingOrders ? styles.toggleTextOff : styles.toggleTextOn,
+                    shopOpen ? styles.toggleTextOff : styles.toggleTextOn,
                   ]}
                 >
-                  {toggleOrders.isPending
-                    ? 'Updating…'
-                    : data.acceptingOrders
-                      ? 'Close shop'
-                      : 'Open shop'}
+                  {toggleOrders.isPending ? 'Updating…' : shopOpen ? 'Close shop' : 'Open shop'}
                 </Text>
               </Pressable>
             </View>

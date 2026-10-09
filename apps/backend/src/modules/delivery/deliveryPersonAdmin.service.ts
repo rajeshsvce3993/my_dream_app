@@ -15,6 +15,7 @@ export async function createDeliveryPerson(input: {
   phone: string;
   vehicleType: string;
   documents: DeliveryOnboardingDocuments;
+  serviceAreaIds?: string[];
   approve?: boolean;
 }) {
   const existing = await UserModel.findOne({ email: input.email.toLowerCase() });
@@ -41,6 +42,7 @@ export async function createDeliveryPerson(input: {
     onboardingComplete: approved,
     availability: 'OFFLINE',
     vehicleType: input.vehicleType,
+    serviceAreaIds: input.serviceAreaIds ?? [],
     documents: input.documents,
   });
   return { user, person };
@@ -81,6 +83,7 @@ export async function listDeliveryPeople() {
       onboardingComplete: person.onboardingComplete,
       lastSeenAt: person.lastSeenAt,
       vehicleType: person.vehicleType,
+      serviceAreaIds: person.serviceAreaIds ?? [],
       documents: person.documents ?? null,
       activeOrder: active ? { id: active._id, orderNumber: active.orderNumber, status: active.status } : null,
       todayDeliveries: todayCount,
@@ -100,6 +103,7 @@ export async function updateDeliveryPerson(
     firstName?: string;
     lastName?: string;
     rejectionReason?: string;
+    serviceAreaIds?: string[];
     documents?: Partial<DeliveryOnboardingDocuments>;
   },
 ) {
@@ -109,6 +113,7 @@ export async function updateDeliveryPerson(
   if (patch.onboardingComplete !== undefined) person.onboardingComplete = patch.onboardingComplete;
   if (patch.vehicleType !== undefined) person.vehicleType = patch.vehicleType;
   if (patch.rejectionReason !== undefined) person.rejectionReason = patch.rejectionReason;
+  if (patch.serviceAreaIds) person.serviceAreaIds = patch.serviceAreaIds;
   if (patch.documents) {
     person.documents = {
       ...(person.documents ?? {}),

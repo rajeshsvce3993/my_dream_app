@@ -15,7 +15,7 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { apiRequestWithMeta } from '../lib/api';
 import { text } from '../lib/locale';
 import { serviceAreaCopy, type LocationAvailabilityMeta } from '../lib/locationMessages';
-import { useAppLocation, usePublicConfig } from '../lib/usePublicConfig';
+import { useResolvedAppLocation, usePublicConfig } from '../lib/usePublicConfig';
 import { theme, spacing, radius, shadow } from '../lib/theme';
 import { ScreenHeader } from './ScreenHeader';
 import { screenHeaderStyles as h } from '../lib/screenHeaderStyles';
@@ -42,7 +42,7 @@ type Props = {
 
 export function RestaurantsScreen({ showBack = true }: Props) {
   const insets = useSafeAreaInsets();
-  const location = useAppLocation();
+  const { location, ready: locationReady } = useResolvedAppLocation();
   const config = usePublicConfig();
   const currency = (config.data?.['currency.symbol'] as string) ?? '₹';
   const filters =
@@ -51,6 +51,7 @@ export function RestaurantsScreen({ showBack = true }: Props) {
 
   const vendors = useQuery({
     queryKey: ['restaurants', location.lng, location.lat],
+    enabled: locationReady,
     queryFn: async () => {
       const { data, meta } = await apiRequestWithMeta<CustomerVendorCard[]>(
         `/vendors?lng=${location.lng}&lat=${location.lat}&limit=50`,
@@ -141,7 +142,7 @@ export function RestaurantsScreen({ showBack = true }: Props) {
           </Text>
         ) : null}
 
-        {vendors.isLoading ? <ActivityIndicator color={theme.primary} /> : null}
+        {vendors.isLoading || !locationReady ? <ActivityIndicator color={theme.primary} /> : null}
         {filtered.map((store) => (
           <RestaurantCard
             key={store.id}
@@ -156,12 +157,19 @@ export function RestaurantsScreen({ showBack = true }: Props) {
             onPress={() => openRestaurant(store.id)}
           />
         ))}
-        {!vendors.isLoading && filtered.length === 0 ? (
+        {locationReady && !vendors.isLoading && filtered.length === 0 ? (
           <EmptyRestaurants location={vendors.data?.location} allCount={vendors.data?.items?.length ?? 0} />
         ) : null}
       </ScrollView>
     </View>
   );
+}
+
+function restaurantCardOffer(store: CustomerVendorCard, currency: string): string {
+  if (!store.isOpen) return 'Currently closed';
+  if (store.offerPercent) return `Up to ${store.offerPercent}% off on selected orders`;
+  if ((store.deliveryFee ?? 0) > 0) return `Delivery ${currency}${store.deliveryFee}`;
+  return 'Open for orders';
 }
 
 function RestaurantCard({
@@ -230,13 +238,20 @@ function RestaurantCard({
           <Text style={{ color: theme.muted, fontSize: 12 }}>{forTwo}</Text>
         </View>
         <View style={{ flexDirection: 'row', alignItems: 'center', gap: 5 }}>
-          <Ionicons name="bicycle-outline" size={13} color={theme.success} />
-          <Text style={{ color: theme.success, fontWeight: '600', fontSize: 11 }} numberOfLines={1}>
-            {store.isOpen
-              ? (store.deliveryFee ?? 0) === 0
-                ? 'Free delivery on select orders'
-                : `Delivery ${currency}${store.deliveryFee}`
-              : 'Currently closed'}
+          <Ionicons
+            name={store.isOpen && store.offerPercent ? 'pricetag-outline' : 'bicycle-outline'}
+            size={13}
+            color={store.isOpen && store.offerPercent ? theme.discount : theme.success}
+          />
+          <Text
+            style={{
+              color: store.isOpen && store.offerPercent ? theme.discount : theme.success,
+              fontWeight: '600',
+              fontSize: 11,
+            }}
+            numberOfLines={1}
+          >
+            {restaurantCardOffer(store, currency)}
           </Text>
         </View>
       </View>

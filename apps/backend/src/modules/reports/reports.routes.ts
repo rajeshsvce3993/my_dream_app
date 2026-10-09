@@ -6,8 +6,52 @@ import { ProductModel } from '../products/product.model.js';
 import { CustomerModel } from '../customers/customer.model.js';
 import { VendorModel } from '../vendors/vendor.model.js';
 import { InventoryModel } from '../inventory/inventory.model.js';
+import { getFinanceReport, setFinancePayout, type FinancePeriod } from './finance.service.js';
 
 export const reportsRouter = Router();
+
+const PERIODS = new Set<FinancePeriod>(['today', 'week', 'month', 'all']);
+
+reportsRouter.get(
+  '/finance',
+  authenticate,
+  requirePermissions('report.read'),
+  async (req, res, next) => {
+    try {
+      const raw = String(req.query.period ?? 'month');
+      const period: FinancePeriod = PERIODS.has(raw as FinancePeriod) ? (raw as FinancePeriod) : 'month';
+      res.json(successResponse(await getFinanceReport(period)));
+    } catch (err) {
+      next(err);
+    }
+  },
+);
+
+reportsRouter.post(
+  '/finance/payout',
+  authenticate,
+  requirePermissions('report.read'),
+  async (req, res, next) => {
+    try {
+      const body = (req.body ?? {}) as { period?: string; kind?: string; partyId?: string; paid?: boolean };
+      const raw = String(body.period ?? 'month');
+      const period: FinancePeriod = PERIODS.has(raw as FinancePeriod) ? (raw as FinancePeriod) : 'month';
+      const kind = body.kind === 'partner' ? 'partner' : 'vendor';
+      res.json(
+        successResponse(
+          await setFinancePayout({
+            period,
+            kind,
+            partyId: String(body.partyId ?? ''),
+            paid: body.paid !== false,
+          }),
+        ),
+      );
+    } catch (err) {
+      next(err);
+    }
+  },
+);
 
 reportsRouter.get(
   '/dashboard',

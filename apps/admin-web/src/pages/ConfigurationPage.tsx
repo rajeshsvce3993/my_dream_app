@@ -70,7 +70,9 @@ export function ConfigurationPage() {
         configured under{' '}
         <strong>auth</strong> via <code>otp.settings</code> (provider, MSG91, limits). Secrets are redacted in
         this UI and are never exposed to mobile apps. Platform delivery zones (multiple lat/lng + radius) are
-        managed on the <Link to="/delivery">Delivery</Link> page (<code>delivery.serviceAreas</code>); per-store
+        managed on the <Link to="/delivery">Delivery</Link> page (<code>delivery.serviceAreas</code>). Food
+        delivery charge and platform fee are on <Link to="/delivery-charges">Delivery charges</Link>, Food tab. GST is set on each
+        shop during <Link to="/vendors">vendor onboarding</Link>. Per-store
         radius is on <Link to="/vendors">Vendors</Link>.
       </p>
       {saveError ? <p className="error">{saveError}</p> : null}

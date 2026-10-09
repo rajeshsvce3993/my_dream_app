@@ -1,5 +1,5 @@
 import * as SecureStore from 'expo-secure-store';
-import type { AppLocation } from './location';
+import { DEFAULT_LOCATION, type AppLocation } from './location';
 
 const KEY = 'deliveryLocation';
 
@@ -11,10 +11,19 @@ export async function loadDeliveryLocation(): Promise<AppLocation | null> {
   try {
     const raw = await SecureStore.getItemAsync(KEY);
     if (!raw) return null;
-    return JSON.parse(raw) as AppLocation;
+    const parsed = JSON.parse(raw) as AppLocation;
+    if (isRetiredChennaiDefault(parsed)) {
+      await saveDeliveryLocation(DEFAULT_LOCATION);
+      return DEFAULT_LOCATION;
+    }
+    return parsed;
   } catch {
     return null;
   }
+}
+
+function isRetiredChennaiDefault(loc: { lng?: number; lat?: number }): boolean {
+  return Math.abs((loc.lng ?? 0) - 80.2707) < 0.0001 && Math.abs((loc.lat ?? 0) - 13.0827) < 0.0001;
 }
 
 export function addressToAppLocation(input: {
@@ -33,8 +42,8 @@ export function addressToAppLocation(input: {
     label: input.label ?? `${input.city}, ${input.state}`,
     city: input.city,
     line1,
-    lng: input.lng ?? 80.2707,
-    lat: input.lat ?? 13.0827,
+    lng: input.lng ?? 79.9186027,
+    lat: input.lat ?? 13.1425869,
     country: 'IN',
     phone: input.phone,
   };

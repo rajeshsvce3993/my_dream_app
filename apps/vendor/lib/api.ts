@@ -77,6 +77,24 @@ export async function apiRequest<T>(path: string, init: RequestInit = {}): Promi
   }
 
   const json = (await response.json()) as ApiResponse<T>;
-  if (!json.success) throw new Error(json.error?.message || 'Request failed');
+  if (!json.success) {
+    const error = new Error(json.error?.message || 'Request failed') as Error & { status?: number };
+    error.status = response.status;
+    throw error;
+  }
+  return json.data;
+}
+
+export async function apiRequestWithToken<T>(path: string, accessToken: string, init: RequestInit = {}): Promise<T> {
+  const headers = new Headers(init.headers);
+  if (!headers.has('Content-Type') && init.body != null) headers.set('Content-Type', 'application/json');
+  headers.set('Authorization', `Bearer ${accessToken}`);
+  const response = await fetch(`${getApiBaseUrl()}${path}`, { ...init, headers });
+  const json = (await response.json()) as ApiResponse<T>;
+  if (!json.success) {
+    const error = new Error(json.error?.message || 'Request failed') as Error & { status?: number };
+    error.status = response.status;
+    throw error;
+  }
   return json.data;
 }

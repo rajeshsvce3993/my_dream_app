@@ -1,6 +1,6 @@
-@import './theme.css';
+﻿@import './theme.css';
 
-/* ——— Shell ——— */
+/* â€”â€”â€” Shell â€”â€”â€” */
 .layout {
   display: grid;
   grid-template-columns: 268px 1fr;
@@ -190,7 +190,7 @@
   line-height: 1.45;
 }
 
-/* ——— Surfaces ——— */
+/* â€”â€”â€” Surfaces â€”â€”â€” */
 .metric-grid {
   display: grid;
   gap: 1rem;
@@ -287,7 +287,7 @@
   font-weight: 600;
 }
 
-/* ——— Forms & tables ——— */
+/* â€”â€”â€” Forms & tables â€”â€”â€” */
 button,
 .btn {
   background: var(--fm-primary-dark);
@@ -516,5 +516,245 @@ th {
 
   .nav-group-label {
     width: 100%;
+  }
+}
+
+.pay-periods {
+  display: inline-flex;
+  gap: 0.15rem;
+  padding: 0.2rem;
+  background: var(--admin-panel);
+  border: 1px solid var(--fm-border);
+  border-radius: 12px;
+}
+
+.pay-periods button {
+  background: transparent;
+  color: var(--color-text-primary);
+  border-radius: 9px;
+  padding: 0.4rem 0.75rem;
+  font-size: 0.82rem;
+  font-weight: 700;
+}
+
+.pay-periods button:hover {
+  background: var(--admin-panel-soft);
+}
+
+.pay-periods button.is-on,
+.pay-periods button.is-on:hover {
+  background: var(--fm-primary-dark);
+  color: var(--admin-on-header);
+}
+
+.pay-sheet {
+  margin-top: 1rem;
+  background: var(--admin-panel);
+  border: 1px solid var(--fm-border);
+  border-radius: var(--fm-radius-md);
+  overflow-x: auto;
+  box-shadow: var(--shadow-sm);
+}
+
+.pay-tabs {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  background: var(--admin-panel-soft);
+  border-bottom: 1px solid var(--fm-border);
+}
+
+.pay-tabs button {
+  background: transparent;
+  color: var(--fm-muted);
+  border: 0;
+  border-radius: 0;
+  border-bottom: 2px solid transparent;
+  box-shadow: none;
+  padding: 0.95rem 1rem;
+  font-size: 0.92rem;
+  font-weight: 700;
+  letter-spacing: -0.01em;
+}
+
+.pay-tabs button:hover {
+  background: transparent;
+  color: var(--fm-primary-dark);
+}
+
+.pay-tabs button.is-on,
+.pay-tabs button.is-on:hover {
+  background: var(--admin-panel);
+  color: var(--fm-primary-dark);
+  border-bottom-color: var(--fm-primary-dark);
+}
+
+.pay-sheet-head {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 1rem;
+  padding: 0.8rem 1rem;
+  border-bottom: 1px solid var(--fm-border);
+  background: var(--admin-panel-soft);
+}
+
+.pay-sheet-head h2 {
+  margin: 0;
+  font-size: 0.95rem;
+}
+
+.pay-sheet-head p {
+  margin: 0;
+  display: flex;
+  align-items: baseline;
+  gap: 0.4rem;
+  white-space: nowrap;
+}
+
+.pay-sheet-head strong {
+  font-size: 1.15rem;
+  letter-spacing: -0.03em;
+  color: var(--fm-primary-dark);
+  font-variant-numeric: tabular-nums;
+}
+
+.pay-sheet-head span,
+.pay-sheet-head em {
+  font-style: normal;
+  color: var(--fm-muted);
+  font-size: 0.8rem;
+  font-weight: 600;
+}
+
+.pay-sheet-head em {
+  margin-left: 0.45rem;
+}
+
+.pay-stats {
+  display: grid;
+  grid-template-columns: 1.35fr 1fr 1fr 1fr;
+  border-bottom: 1px solid var(--fm-border);
+}
+
+.pay-stats > div {
+  padding: 0.95rem 1rem 1rem;
+  border-left: 1px solid var(--fm-border);
+}
+
+.pay-stats > div:first-child {
+  border-left: 0;
+}
+
+.pay-stats span {
+  display: block;
+  font-size: 0.7rem;
+  font-weight: 700;
+  letter-spacing: 0.05em;
+  text-transform: uppercase;
+  color: var(--fm-muted);
+}
+
+.pay-stats strong {
+  display: block;
+  margin-top: 0.28rem;
+  font-size: 1.28rem;
+  letter-spacing: -0.03em;
+  color: var(--fm-primary-dark);
+  font-variant-numeric: tabular-nums;
+}
+
+.pay-stats > div:first-child strong {
+  font-size: 1.55rem;
+}
+
+.pay-stat-tax strong {
+  color: var(--fm-muted);
+  font-size: 1.28rem;
+}
+
+.pay-sheet table {
+  margin: 0;
+}
+
+.pay-sheet th,
+.pay-sheet td {
+  padding: 0.7rem 0.85rem;
+  font-variant-numeric: tabular-nums;
+}
+
+.pay-sheet th {
+  white-space: nowrap;
+  background: var(--admin-panel);
+}
+
+.pay-sheet th:first-child,
+.pay-sheet td:first-child,
+.pay-sheet .pay-text {
+  text-align: left;
+}
+
+.pay-sheet th:not(:first-child):not(.pay-text),
+.pay-sheet td:not(:first-child):not(.pay-text) {
+  text-align: right;
+}
+
+.pay-sheet tbody tr:last-child td {
+  border-bottom: 0;
+}
+
+.pay-sheet .pay-amount {
+  font-weight: 800;
+  color: var(--fm-primary-dark);
+}
+
+.pay-tax {
+  color: var(--fm-muted);
+  font-weight: 700;
+}
+
+.pay-empty {
+  margin: 0;
+  padding: 1rem;
+}
+
+.pay-actions {
+  white-space: nowrap;
+}
+
+.pay-sheet .pay-mark {
+  margin-left: 0.35rem;
+  padding: 0.28rem 0.55rem;
+  font-size: 0.75rem;
+  background: transparent;
+  color: var(--fm-primary-dark);
+  border: 1px solid var(--fm-border);
+  border-radius: 8px;
+}
+
+.pay-sheet .pay-mark:hover {
+  background: var(--admin-panel-soft);
+}
+
+.pay-sheet button.secondary.pay-mark {
+  color: var(--fm-muted);
+}
+
+@media (max-width: 900px) {
+  .pay-stats,
+  .pay-sheet-head {
+    display: block;
+  }
+
+  .pay-sheet-head p {
+    margin-top: 0.35rem;
+  }
+
+  .pay-stats > div {
+    border-left: 0;
+    border-top: 1px solid var(--fm-border);
+  }
+
+  .pay-stats > div:first-child {
+    border-top: 0;
   }
 }

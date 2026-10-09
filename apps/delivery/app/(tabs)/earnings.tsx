@@ -8,7 +8,6 @@ import {
   Text,
   View,
 } from 'react-native';
-import { Ionicons } from '@expo/vector-icons';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { ScreenHeader } from '../../components/ScreenHeader';
 import { apiRequest } from '../../lib/api';
@@ -18,8 +17,11 @@ import { radius, shadow, spacing, theme } from '../../lib/theme';
 type Earnings = {
   currency: string;
   today: number;
+  todayOrders?: number;
   thisWeek: number;
+  weekOrders?: number;
   thisMonth: number;
+  monthOrders?: number;
   total: number;
   deliveries?: number;
 };
@@ -32,14 +34,25 @@ export default function EarningsScreen() {
   });
 
   const data = earnings.data;
+  const blocks = data
+    ? [
+        { title: 'All time', amount: data.total, orders: data.deliveries ?? 0 },
+        { title: 'Today', amount: data.today, orders: data.todayOrders ?? 0 },
+        { title: 'This week', amount: data.thisWeek, orders: data.weekOrders ?? 0 },
+        { title: 'This month', amount: data.thisMonth, orders: data.monthOrders ?? 0 },
+      ]
+    : [];
 
   return (
     <View style={styles.root}>
       <ScreenHeader title="Earnings" subtitle="Delivery payouts" />
       <ScrollView
-        contentContainerStyle={{ padding: spacing.lg, paddingBottom: insets.bottom + 32, gap: spacing.md }}
+        contentContainerStyle={{ padding: spacing.md, paddingBottom: insets.bottom + 24, gap: spacing.sm }}
         refreshControl={
-          <RefreshControl refreshing={earnings.isFetching && !earnings.isLoading} onRefresh={() => earnings.refetch()} />
+          <RefreshControl
+            refreshing={earnings.isFetching && !earnings.isLoading}
+            onRefresh={() => earnings.refetch()}
+          />
         }
       >
         {earnings.isLoading && !data ? (
@@ -55,38 +68,23 @@ export default function EarningsScreen() {
           </View>
         ) : null}
 
-        {data ? (
-          <>
-            <View style={styles.hero}>
-              <Text style={styles.heroLabel}>Today</Text>
-              <Text style={styles.heroValue}>{money(data.currency, data.today)}</Text>
-              <View style={styles.heroMeta}>
-                <Ionicons name="bicycle-outline" size={14} color={theme.onHeaderMuted} />
-                <Text style={styles.heroMetaText}>
-                  {data.deliveries ?? 0} completed {data.deliveries === 1 ? 'delivery' : 'deliveries'} total
-                </Text>
+        {blocks.map((block) => (
+          <View key={block.title} style={styles.card}>
+            <View style={styles.header}>
+              <Text style={styles.title}>{block.title}</Text>
+            </View>
+            <View style={styles.body}>
+              <View style={styles.line}>
+                <Text style={styles.name}>Earnings</Text>
+                <Text style={styles.earnings}>{money(data?.currency, block.amount)}</Text>
+              </View>
+              <View style={styles.line}>
+                <Text style={styles.name}>Orders</Text>
+                <Text style={styles.orders}>{block.orders}</Text>
               </View>
             </View>
-
-            {(
-              [
-                { label: 'This week', value: data.thisWeek, icon: 'calendar-outline' as const },
-                { label: 'This month', value: data.thisMonth, icon: 'stats-chart-outline' as const },
-                { label: 'All time', value: data.total, icon: 'trophy-outline' as const },
-              ] as const
-            ).map((row) => (
-              <View key={row.label} style={styles.row}>
-                <View style={styles.rowIcon}>
-                  <Ionicons name={row.icon} size={18} color={theme.delivery} />
-                </View>
-                <View style={{ flex: 1 }}>
-                  <Text style={styles.rowLabel}>{row.label}</Text>
-                </View>
-                <Text style={styles.rowValue}>{money(data.currency, row.value)}</Text>
-              </View>
-            ))}
-          </>
-        ) : null}
+          </View>
+        ))}
       </ScrollView>
     </View>
   );
@@ -94,54 +92,35 @@ export default function EarningsScreen() {
 
 const styles = StyleSheet.create({
   root: { flex: 1, backgroundColor: theme.bg },
-  hero: {
-    backgroundColor: theme.headerBg,
-    borderRadius: radius.lg,
-    padding: spacing.xl,
-    ...shadow.card,
-  },
-  heroLabel: {
-    fontSize: 12,
-    fontWeight: '700',
-    color: theme.onHeaderMuted,
-    letterSpacing: 0.4,
-    textTransform: 'uppercase',
-  },
-  heroValue: {
-    marginTop: 8,
-    fontSize: 36,
-    fontWeight: '900',
-    color: theme.onHeader,
-    letterSpacing: -1,
-  },
-  heroMeta: {
-    marginTop: spacing.md,
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 6,
-  },
-  heroMetaText: { color: theme.onHeaderMuted, fontSize: 13, fontWeight: '600' },
-  row: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 12,
+  card: {
     backgroundColor: theme.white,
     borderRadius: radius.md,
-    padding: spacing.lg,
     borderWidth: 1,
     borderColor: theme.border,
+    overflow: 'hidden',
     ...shadow.card,
   },
-  rowIcon: {
-    width: 40,
-    height: 40,
-    borderRadius: 12,
-    backgroundColor: theme.primaryMuted,
+  header: {
+    backgroundColor: '#F7F4EF',
+    paddingVertical: 6,
+    paddingHorizontal: 12,
     alignItems: 'center',
-    justifyContent: 'center',
+    borderBottomWidth: StyleSheet.hairlineWidth,
+    borderBottomColor: theme.border,
   },
-  rowLabel: { fontSize: 14, fontWeight: '700', color: theme.text },
-  rowValue: { fontSize: 17, fontWeight: '900', color: theme.primaryDark },
+  body: { paddingVertical: 8, paddingHorizontal: 12, gap: 4 },
+  title: {
+    fontSize: 13,
+    fontWeight: '900',
+    color: '#1A5563',
+    letterSpacing: 0.6,
+    textAlign: 'center',
+    textTransform: 'uppercase',
+  },
+  line: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', gap: 12 },
+  name: { fontSize: 12, fontWeight: '700', color: theme.muted },
+  earnings: { fontSize: 15, fontWeight: '800', color: theme.primaryDark },
+  orders: { fontSize: 15, fontWeight: '800', color: theme.delivery },
   errorBox: { padding: spacing.lg, alignItems: 'center', gap: 8 },
   errorText: { color: theme.danger, textAlign: 'center', fontWeight: '600' },
   retry: { color: theme.delivery, fontWeight: '800' },

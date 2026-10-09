@@ -7,6 +7,7 @@ export const theme = {
   accent: '#3E8A9A',
   bg: '#FCFAF7',
   headerBg: '#0F2430',
+  bannerBg: '#5C2E38',
   onHeader: '#F0F7FA',
   onHeaderMuted: '#9BB8C6',
   surface: '#EAE3DA',

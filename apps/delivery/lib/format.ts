@@ -15,6 +15,12 @@ export function formatDeliveredAt(iso?: string): string {
   });
 }
 
+export function orderSerial(orderNumber: string): string {
+  const parts = orderNumber.split('-');
+  const serial = parts.length >= 3 ? parts[parts.length - 1] : '';
+  return serial && /^\d+$/.test(serial) ? serial : orderNumber;
+}
+
 export function greetingForNow(now = new Date()): string {
   const h = now.getHours();
   if (h < 12) return 'Good morning';

@@ -1,5 +1,7 @@
 import mongoose from 'mongoose';
+import { roundToPaisa } from '../../common/money.util.js';
 import { VendorOrderModel } from '../orders/vendorOrder.model.js';
+import { taxAwareVendorTotals } from './vendorOrderPortal.service.js';
 
 function startOfDay(d = new Date()) {
   const x = new Date(d);
@@ -26,19 +28,14 @@ async function sumEarnings(vendorId: string, since?: Date) {
   };
   if (since) match.updatedAt = { $gte: since };
 
-  const rows = await VendorOrderModel.aggregate([
-    { $match: match },
-    {
-      $group: {
-        _id: null,
-        gross: { $sum: '$subtotal' },
-        commission: { $sum: '$commissionAmount' },
-        net: { $sum: '$vendorPayoutAmount' },
-        orders: { $sum: 1 },
-      },
-    },
-  ]);
-  return rows[0] ?? { gross: 0, commission: 0, net: 0, orders: 0 };
+  const orders = await VendorOrderModel.find(match).select('parentOrderId items').lean();
+  const totals = await taxAwareVendorTotals(vendorId, orders);
+  return {
+    gross: roundToPaisa(totals.sales),
+    commission: roundToPaisa(totals.serviceCharge),
+    net: roundToPaisa(totals.earnings),
+    orders: orders.length,
+  };
 }
 
 export async function getVendorEarnings(vendorId: string) {

@@ -26,7 +26,11 @@ type OrderDetail = {
     imageUrl?: string;
     vendorName?: string;
   }>;
-  tracking?: { partner: string; trackingId: string };
+  tracking?: {
+    partner: string;
+    trackingId: string;
+    assignedPartner?: { name?: string; phone?: string } | null;
+  };
 };
 
 export function OrderDetailPage() {
@@ -38,7 +42,7 @@ export function OrderDetailPage() {
     queryFn: () => apiRequest<OrderDetail>(`/orders/my/${id}`),
     enabled: Boolean(id),
     retry: false,
-    refetchInterval: 30_000,
+    refetchInterval: 5000,
   });
 
   if (detail.isError) {
@@ -52,8 +56,15 @@ export function OrderDetailPage() {
   if (detail.isLoading || !detail.data) return <HomeFeedSkeleton />;
 
   const { order, items, tracking } = detail.data;
+  const restaurantNames = [
+    ...new Set(
+      (detail.data.vendorOrders ?? [])
+        .map((vendor) => vendor.vendorName)
+        .filter((name): name is string => Boolean(name)),
+    ),
+  ];
   const primaryVendor =
-    detail.data.vendorOrders[0]?.vendorName ?? items[0]?.vendorName ?? 'Local vendor';
+    restaurantNames.join(', ') || items[0]?.vendorName || 'Restaurant';
   const placed = new Date(order.createdAt).toLocaleString('en-IN', {
     day: 'numeric',
     month: 'short',
@@ -67,8 +78,10 @@ export function OrderDetailPage() {
       <div>
         <div className="fm-order-head">
           <div>
-            <h1 style={{ margin: 0 }}>Order #{order.orderNumber}</h1>
-            <p className="fm-muted-text">Placed {placed}</p>
+            <h1 style={{ margin: 0 }}>{primaryVendor}</h1>
+            <p className="fm-muted-text">
+              Order {order.orderNumber} · Placed {placed}
+            </p>
           </div>
           <span className="qc-status-pill">{orderStatusLabel(order.status, locale)}</span>
         </div>
@@ -109,13 +122,21 @@ export function OrderDetailPage() {
               </li>
             ))}
           </ul>
-          {tracking ? (
-            <p>
-              <span className="fm-muted-text">Partner:</span> {tracking.partner}
-              <br />
-              <span className="fm-muted-text">ID:</span> {tracking.trackingId}
-            </p>
-          ) : null}
+          <p>
+            <span className="fm-muted-text">Delivery partner</span>
+            <br />
+            {tracking?.assignedPartner?.name ? (
+              <strong>{tracking.assignedPartner.name}</strong>
+            ) : (
+              <span>
+                {order.status === 'CANCELLED'
+                  ? 'No delivery partner was assigned.'
+                  : order.status === 'READY_FOR_PICKUP' || order.status === 'OUT_FOR_DELIVERY'
+                    ? 'Looking for a delivery partner nearby.'
+                    : "We'll assign a delivery partner once your food is prepared and a partner is available."}
+              </span>
+            )}
+          </p>
           <button type="button" className="qc-btn qc-btn--outline qc-btn--block">
             <Map size={16} /> Track on map
           </button>

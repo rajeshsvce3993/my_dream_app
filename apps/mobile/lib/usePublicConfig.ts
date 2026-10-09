@@ -13,6 +13,11 @@ export function usePublicConfig() {
 }
 
 export function useAppLocation(): AppLocation {
+  return useResolvedAppLocation().location;
+}
+
+/** Saved delivery pin when the customer has one. `ready` is false until that lookup finishes. */
+export function useResolvedAppLocation(): { location: AppLocation; ready: boolean } {
   const { data: config } = usePublicConfig();
   const saved = useQuery({
     queryKey: ['delivery-location'],
@@ -20,5 +25,8 @@ export function useAppLocation(): AppLocation {
     staleTime: 30_000,
   });
   const fromDb = config?.['mobile.location.default'] as AppLocation | undefined;
-  return saved.data ?? fromDb ?? DEFAULT_LOCATION;
+  return {
+    location: saved.data ?? fromDb ?? DEFAULT_LOCATION,
+    ready: saved.isFetched,
+  };
 }

@@ -6,6 +6,10 @@ import { theme } from '../lib/theme';
 
 const queryClient = new QueryClient();
 
+export const unstable_settings = {
+  initialRouteName: 'index',
+};
+
 export default function RootLayout() {
   return (
     <SafeAreaProvider>
@@ -14,13 +18,15 @@ export default function RootLayout() {
         <Stack
           screenOptions={{
             headerShown: false,
-            contentStyle: { backgroundColor: theme.bg },
+            contentStyle: { backgroundColor: theme.primaryDark },
+            animation: 'fade',
           }}
         >
-          <Stack.Screen name="(tabs)" />
-          <Stack.Screen name="login" />
-          <Stack.Screen name="order/[id]" options={{ presentation: 'card' }} />
-          <Stack.Screen name="product/[id]" options={{ presentation: 'card' }} />
+          <Stack.Screen name="index" options={{ headerShown: false, animation: 'none' }} />
+          <Stack.Screen name="login" options={{ headerShown: false, animation: 'fade' }} />
+          <Stack.Screen name="(tabs)" options={{ headerShown: false }} />
+          <Stack.Screen name="order/[id]" options={{ headerShown: false, presentation: 'card' }} />
+          <Stack.Screen name="product/[id]" options={{ headerShown: false, presentation: 'card' }} />
         </Stack>
       </QueryClientProvider>
     </SafeAreaProvider>

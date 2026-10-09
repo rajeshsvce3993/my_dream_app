@@ -2,15 +2,18 @@ import { Router } from 'express';
 import { z } from 'zod';
 import { validate } from '../../common/middleware/validate.js';
 import { paginatedMeta, successResponse } from '../../common/types/api.js';
-import { NotFoundError } from '../../common/errors/AppError.js';
+import { ConflictError, NotFoundError } from '../../common/errors/AppError.js';
 import { authenticate, requirePermissions } from '../auth/auth.middleware.js';
 import { VendorModel } from './vendor.model.js';
-import { getConfigValue } from '../configuration/configuration.service.js';
 import {
   normalizeEmptyUrls,
   vendorOnboardingDocumentsBaseSchema,
   vendorOnboardingDocumentsSchema,
 } from '../onboarding/onboardingDocuments.js';
+import {
+  isCustomerInAllowedServiceArea,
+  vendorSharesCustomerLaunchArea,
+} from '../delivery/deliveryServiceAreas.service.js';
 import {
   getCustomerVendor,
   getVendorStoreProduct,
@@ -20,21 +23,40 @@ import {
 
 export const vendorRouter = Router();
 
+const VENDOR_CODE_ALPHABET = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789';
+
+/** Short unique shop code, for example VN-K7Q2MP. Assigned once at onboarding. */
+async function allocateVendorCode(): Promise<string> {
+  for (let attempt = 0; attempt < 8; attempt++) {
+    let suffix = '';
+    for (let i = 0; i < 6; i++) {
+      suffix += VENDOR_CODE_ALPHABET[Math.floor(Math.random() * VENDOR_CODE_ALPHABET.length)];
+    }
+    const code = `VN-${suffix}`;
+    const exists = await VendorModel.exists({ code });
+    if (!exists) return code;
+  }
+  throw new ConflictError('Could not generate a unique vendor code');
+}
+
+const vendorAddressSchema = z.object({
+  line1: z.string().min(3).max(120),
+  line2: z.string().max(120).optional(),
+  city: z.string().min(2).max(100),
+  state: z.string().min(2).max(100),
+  postalCode: z.string().regex(/^\d{6}$/, 'Enter a valid 6-digit PIN'),
+  country: z.string().max(100).optional(),
+});
+
 const createVendorSchema = z.object({
-  code: z.string().min(1),
   name: z.string().min(1),
   email: z.string().email().optional(),
   phone: z.string().optional(),
   status: z.enum(['ACTIVE', 'INACTIVE', 'SUSPENDED']).optional(),
   commissionRate: z.number().min(0).max(100).optional(),
-  address: z.object({
-    line1: z.string().min(3).max(120),
-    line2: z.string().max(120).optional(),
-    city: z.string().min(2).max(100),
-    state: z.string().min(2).max(100),
-    postalCode: z.string().regex(/^\d{6}$/, 'Enter a valid 6-digit PIN'),
-    country: z.string().max(100).optional(),
-  }),
+  gstEnabled: z.boolean().optional(),
+  gstPercent: z.number().min(0).max(100).optional(),
+  address: vendorAddressSchema,
   longitude: z.number().min(-180).max(180),
   latitude: z.number().min(-90).max(90),
   serviceAreaRadiusKm: z.number().min(0).optional(),
@@ -52,6 +74,7 @@ const createVendorSchema = z.object({
 const updateVendorSchema = createVendorSchema
   .partial()
   .extend({
+    address: vendorAddressSchema.partial().optional(),
     documents: vendorOnboardingDocumentsBaseSchema.partial().optional(),
     onboardingStatus: z.enum(['INCOMPLETE', 'PENDING_REVIEW', 'APPROVED', 'REJECTED']).optional(),
     onboardingRejectionReason: z.string().max(300).optional(),
@@ -67,22 +90,23 @@ vendorRouter.get('/nearby', async (req, res, next) => {
       res.status(400).json({ success: false, error: { code: 'VALIDATION_ERROR', message: 'lng and lat required' } });
       return;
     }
-    const maxRadiusKm =
-      Number(req.query.maxRadiusKm) ||
-      (await getConfigValue<number>('vendor.search.maxRadiusKm', 25));
+    const zone = await isCustomerInAllowedServiceArea(lng, lat);
+    if (!zone.allowed) {
+      res.json(successResponse([]));
+      return;
+    }
 
     const vendors = await VendorModel.find({
       status: 'ACTIVE',
       onboardingComplete: { $ne: false },
-      location: {
-        $near: {
-          $geometry: { type: 'Point', coordinates: [lng, lat] },
-          $maxDistance: maxRadiusKm * 1000,
-        },
-      },
-    }).limit(50);
+    }).limit(200);
 
-    res.json(successResponse(vendors));
+    const inLaunch = vendors.filter((v) => {
+      const [vlng, vlat] = v.location.coordinates;
+      return vendorSharesCustomerLaunchArea(vlng, vlat, zone.matchedAreas);
+    });
+
+    res.json(successResponse(inLaunch));
   } catch (err) {
     next(err);
   }
@@ -131,8 +155,10 @@ vendorRouter.post(
       const { longitude, latitude, documents, approveOnboarding, ...rest } = req.body;
       const docs = normalizeEmptyUrls(documents);
       const approved = approveOnboarding !== false;
+      const code = await allocateVendorCode();
       const created = await VendorModel.create({
         ...rest,
+        code,
         documents: docs,
         phone: rest.phone || docs.ownerPhone,
         location: { type: 'Point', coordinates: [longitude, latitude] },
@@ -158,19 +184,27 @@ vendorRouter.patch(
   }),
   async (req, res, next) => {
     try {
-      const { longitude, latitude, documents, ...rest } = req.body as z.infer<typeof updateVendorSchema>;
+      const { longitude, latitude, documents, address, ...rest } = req.body as z.infer<typeof updateVendorSchema>;
       const update: Record<string, unknown> = { ...rest };
       if (longitude !== undefined && latitude !== undefined) {
         update.location = { type: 'Point', coordinates: [longitude, latitude] };
       }
-      if (documents) {
-        const existing = await VendorModel.findById(req.params.id).select('documents').lean();
-        update.documents = normalizeEmptyUrls({
-          ...(existing?.documents ?? {}),
-          ...documents,
-        });
-        update.onboardingComplete = true;
-        if (!rest.onboardingStatus) update.onboardingStatus = 'APPROVED';
+      if (address || documents) {
+        const existing = await VendorModel.findById(req.params.id).select('documents address').lean();
+        if (address) {
+          const incoming = Object.fromEntries(
+            Object.entries(address).filter(([, value]) => value !== undefined && value !== ''),
+          );
+          update.address = { ...(existing?.address ?? {}), ...incoming };
+        }
+        if (documents) {
+          update.documents = normalizeEmptyUrls({
+            ...(existing?.documents ?? {}),
+            ...documents,
+          });
+          update.onboardingComplete = true;
+          if (!rest.onboardingStatus) update.onboardingStatus = 'APPROVED';
+        }
       }
       if (rest.onboardingStatus === 'APPROVED') {
         update.onboardingComplete = true;

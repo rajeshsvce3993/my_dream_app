@@ -22,6 +22,7 @@ export interface IOrder {
   discountTotal: number;
   taxTotal: number;
   shippingTotal: number;
+  platformFee?: number;
   grandTotal: number;
   currency: string;
   deliveryAddress: {
@@ -42,6 +43,7 @@ export interface IOrder {
   pickedUpAt?: Date;
   deliveredAt?: Date;
   deliveryEarning?: number;
+  partnerPayoutPaidAt?: Date;
   createdAt: Date;
   updatedAt: Date;
 }
@@ -73,6 +75,7 @@ const orderSchema = new Schema<IOrderDocument>(
     discountTotal: { type: Number, default: 0, min: 0 },
     taxTotal: { type: Number, required: true, min: 0 },
     shippingTotal: { type: Number, required: true, min: 0 },
+    platformFee: { type: Number, default: 0, min: 0 },
     grandTotal: { type: Number, required: true, min: 0 },
     currency: { type: String, default: 'INR' },
     deliveryAddress: {
@@ -102,6 +105,7 @@ const orderSchema = new Schema<IOrderDocument>(
     pickedUpAt: { type: Date },
     deliveredAt: { type: Date },
     deliveryEarning: { type: Number, min: 0 },
+    partnerPayoutPaidAt: { type: Date },
   },
   { timestamps: true },
 );
@@ -113,7 +117,7 @@ orderSchema.index(
     unique: true,
     partialFilterExpression: {
       deliveryPersonUserId: { $type: 'objectId' },
-      status: { $in: ['PACKED', 'READY_FOR_PICKUP', 'OUT_FOR_DELIVERY'] },
+      status: { $in: ['PROCESSING', 'PACKED', 'READY_FOR_PICKUP', 'OUT_FOR_DELIVERY'] },
     },
   },
 );

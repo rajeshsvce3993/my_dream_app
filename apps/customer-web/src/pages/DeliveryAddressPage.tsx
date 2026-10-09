@@ -94,8 +94,8 @@ export function DeliveryAddressPage() {
         label: `${created.city}, ${created.state}`,
         line1,
         city: created.city,
-        lng: created.lng ?? lng ?? 80.2707,
-        lat: created.lat ?? lat ?? 13.0827,
+        lng: created.lng ?? lng ?? 79.9186027,
+        lat: created.lat ?? lat ?? 13.1425869,
         country: 'IN',
       };
       setLocation(loc);

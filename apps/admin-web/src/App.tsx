@@ -3,6 +3,7 @@ import { AdminLayout } from './components/AdminLayout';
 import { ProtectedRoute } from './components/ProtectedRoute';
 import { LoginPage } from './pages/LoginPage';
 import { DashboardPage } from './pages/DashboardPage';
+import { PaymentsPage } from './pages/PaymentsPage';
 import { CategoriesPage } from './pages/CategoriesPage';
 import { ProductsPage } from './pages/ProductsPage';
 import { VendorsPage } from './pages/VendorsPage';
@@ -12,6 +13,8 @@ import { OrderDetailPage } from './pages/OrderDetailPage';
 import { ConfigurationPage } from './pages/ConfigurationPage';
 import { VendorMappingPage } from './pages/VendorMappingPage';
 import { DeliveryZonesPage } from './pages/DeliveryZonesPage';
+import { FoodChargesPage } from './pages/FoodChargesPage';
+import { PartnerEarningsPage } from './pages/PartnerEarningsPage';
 import { DeliveryPeoplePage } from './pages/DeliveryPeoplePage';
 import { VendorStaffPage } from './pages/VendorStaffPage';
 import { HomeVerticalsPage } from './pages/HomeVerticalsPage';
@@ -32,6 +35,7 @@ export function App() {
       >
         <Route index element={<Navigate to="/dashboard" replace />} />
         <Route path="dashboard" element={<DashboardPage />} />
+        <Route path="payments" element={<PaymentsPage />} />
         <Route path="categories" element={<CategoriesPage />} />
         <Route path="products" element={<ProductsPage />} />
         <Route path="vendors" element={<VendorsPage />} />
@@ -44,6 +48,10 @@ export function App() {
         <Route path="home-verticals" element={<HomeVerticalsPage />} />
         <Route path="home-top-picks" element={<HomeTopPicksPage />} />
         <Route path="delivery" element={<DeliveryZonesPage />} />
+        <Route path="delivery-charges" element={<FoodChargesPage />} />
+        <Route path="partner-earnings" element={<PartnerEarningsPage />} />
+        <Route path="charges/food" element={<Navigate to="/delivery-charges" replace />} />
+        <Route path="food-charges" element={<Navigate to="/delivery-charges" replace />} />
         <Route path="delivery-partners" element={<DeliveryPeoplePage />} />
         <Route path="vendor-partners" element={<VendorStaffPage />} />
         <Route path="*" element={<Navigate to="/dashboard" replace />} />

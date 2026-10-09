@@ -15,7 +15,7 @@ import { ScreenHeader } from '../../components/ScreenHeader';
 import { apiRequest } from '../../lib/api';
 import { openLogin } from '../../lib/openLogin';
 import { useAuthSession } from '../../lib/useAuthSession';
-import { formatMoney } from '../../lib/format';
+import { formatMoney, orderSerial } from '../../lib/format';
 import { theme, spacing, radius } from '../../lib/theme';
 
 type Order = {
@@ -111,6 +111,7 @@ export default function OrdersTab() {
     queryFn: () => apiRequest<Order[]>('/orders/my'),
     enabled: hasToken === true,
     retry: false,
+    refetchInterval: 8000,
   });
 
   useEffect(() => {
@@ -212,8 +213,8 @@ export default function OrdersTab() {
               });
               const canTrack = !['DELIVERED', 'CANCELLED'].includes(order.status);
               const restaurant =
-                order.restaurantNames && order.restaurantNames.length > 1
-                  ? `${order.restaurantNames[0]} +${order.restaurantNames.length - 1}`
+                order.restaurantNames && order.restaurantNames.length > 0
+                  ? order.restaurantNames.join(', ')
                   : order.restaurantName ?? 'Restaurant';
               const itemsLine = order.itemPreview
                 ? `${order.itemPreview}${order.moreItemCount ? ` +${order.moreItemCount} more` : ''}`
@@ -264,7 +265,7 @@ export default function OrdersTab() {
                         <View style={{ flex: 1, minWidth: 0 }}>
                           <Text
                             style={{ fontWeight: '800', fontSize: 14, color: theme.text }}
-                            numberOfLines={1}
+                            numberOfLines={2}
                           >
                             {restaurant}
                           </Text>
@@ -275,7 +276,7 @@ export default function OrdersTab() {
                             {itemsLine}
                           </Text>
                           <Text style={{ fontSize: 11, color: theme.muted, marginTop: 4 }}>
-                            {placedAt}
+                            {orderSerial(order.orderNumber)} · {placedAt}
                             {qtyLabel ? ` · ${qtyLabel}` : ''}
                           </Text>
                         </View>

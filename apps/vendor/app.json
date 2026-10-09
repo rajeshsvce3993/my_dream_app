@@ -12,7 +12,8 @@
       "resizeMode": "contain"
     },
     "android": {
-      "backgroundColor": "#0F2430"
+      "backgroundColor": "#0F2430",
+      "softwareKeyboardLayoutMode": "resize"
     },
     "ios": {
       "backgroundColor": "#0F2430"

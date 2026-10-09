@@ -21,6 +21,9 @@ export async function createVendorStaff(input: {
   const existing = await UserModel.findOne({ email: input.email.toLowerCase() });
   if (existing) throw new ConflictError('Email already registered');
 
+  const shopLogin = await VendorStaffModel.findOne({ vendorId: vendor._id }).select('_id').lean();
+  if (shopLogin) throw new ConflictError('This shop already has a login');
+
   const role = await RoleModel.findOne({ code: 'VENDOR', isActive: true });
   if (!role) throw new ConflictError('VENDOR role is missing. Run the database seed.');
 
@@ -35,14 +38,21 @@ export async function createVendorStaff(input: {
     emailVerified: true,
   });
 
-  const staff = await VendorStaffModel.create({
-    userId: user._id,
-    vendorId: vendor._id,
-    approvalStatus: input.approve ? 'APPROVED' : 'PENDING',
-    acceptingOrders: true,
-  });
-
-  return { user, staff, vendor };
+  try {
+    const staff = await VendorStaffModel.create({
+      userId: user._id,
+      vendorId: vendor._id,
+      approvalStatus: input.approve ? 'APPROVED' : 'PENDING',
+      acceptingOrders: true,
+    });
+    return { user, staff, vendor };
+  } catch (err) {
+    await UserModel.deleteOne({ _id: user._id });
+    if ((err as { code?: number }).code === 11000) {
+      throw new ConflictError('This shop already has a login');
+    }
+    throw err;
+  }
 }
 
 export async function listVendorStaffAccounts() {

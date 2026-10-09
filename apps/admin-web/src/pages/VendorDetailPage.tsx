@@ -33,6 +33,8 @@ type Vendor = {
   email?: string;
   phone?: string;
   commissionRate?: number;
+  gstEnabled?: boolean;
+  gstPercent?: number;
   deliveryRadiusKm?: number;
   serviceAreaRadiusKm?: number;
   serviceAreaWideDelivery?: boolean;
@@ -46,6 +48,7 @@ type Vendor = {
   location?: { coordinates: [number, number] };
   address?: {
     line1?: string;
+    line2?: string;
     city?: string;
     state?: string;
     postalCode?: string;
@@ -88,12 +91,17 @@ export function VendorDetailPage() {
 
   const [name, setName] = useState('');
   const [status, setStatus] = useState<'ACTIVE' | 'INACTIVE' | 'SUSPENDED'>('ACTIVE');
+  const [serviceCharge, setServiceCharge] = useState('0');
+  const [gstEnabled, setGstEnabled] = useState(false);
+  const [gstPercent, setGstPercent] = useState('5');
   const [latitude, setLatitude] = useState('');
   const [longitude, setLongitude] = useState('');
-  const [deliveryRadiusKm, setDeliveryRadiusKm] = useState('15');
-  const [serviceAreaWideDelivery, setServiceAreaWideDelivery] = useState(false);
+  const [line1, setLine1] = useState('');
+  const [line2, setLine2] = useState('');
   const [city, setCity] = useState('');
   const [stateName, setStateName] = useState('');
+  const [postalCode, setPostalCode] = useState('');
+  const [country, setCountry] = useState('India');
   const [cuisineTags, setCuisineTags] = useState<string[]>([]);
   const [dietType, setDietType] = useState<'veg' | 'nonveg' | 'both'>('both');
   const [imageUrl, setImageUrl] = useState('');
@@ -115,13 +123,18 @@ export function VendorDetailPage() {
     if (!v) return;
     setName(v.name);
     setStatus(v.status as typeof status);
+    setServiceCharge(String(v.commissionRate ?? 0));
+    setGstEnabled(Boolean(v.gstEnabled));
+    setGstPercent(String(v.gstPercent ?? 5));
     const [lng, lat] = v.location?.coordinates ?? [];
     if (lat !== undefined) setLatitude(String(lat));
     if (lng !== undefined) setLongitude(String(lng));
-    setDeliveryRadiusKm(String(v.deliveryRadiusKm ?? 15));
-    setServiceAreaWideDelivery(Boolean(v.serviceAreaWideDelivery));
+    setLine1(v.address?.line1 ?? '');
+    setLine2(v.address?.line2 ?? '');
     setCity(v.address?.city ?? '');
     setStateName(v.address?.state ?? '');
+    setPostalCode(v.address?.postalCode ?? '');
+    setCountry(v.address?.country || 'India');
     setCuisineTags(Array.isArray(v.cuisineTags) ? [...v.cuisineTags] : []);
     setDietType(
       v.dietType === 'veg' || v.dietType === 'nonveg' || v.dietType === 'both' ? v.dietType : 'both',
@@ -140,23 +153,38 @@ export function VendorDetailPage() {
       if (Number.isNaN(lat) || Number.isNaN(lng)) {
         throw new Error('Latitude and longitude must be valid numbers');
       }
+      const commissionRate = Number(serviceCharge);
+      if (serviceCharge.trim() === '' || Number.isNaN(commissionRate) || commissionRate < 0 || commissionRate > 100) {
+        throw new Error('Service charge must be a percentage from 0 to 100');
+      }
+      const gstRate = Number(gstPercent);
+      if (gstEnabled && (gstPercent.trim() === '' || Number.isNaN(gstRate) || gstRate < 0 || gstRate > 100)) {
+        throw new Error('GST must be a percentage from 0 to 100');
+      }
+      if (line1.trim().length < 3) throw new Error('Address line must be at least 3 characters');
+      if (city.trim().length < 2) throw new Error('City is required');
+      if (stateName.trim().length < 2) throw new Error('State is required');
+      if (!/^\d{6}$/.test(postalCode.trim())) throw new Error('PIN code must be 6 digits');
       return apiRequest(`/vendors/${id}`, {
         method: 'PATCH',
         body: JSON.stringify({
           name: name.trim(),
           status,
+          commissionRate,
+          gstEnabled,
+          gstPercent: Number.isFinite(gstRate) ? gstRate : 5,
           latitude: lat,
           longitude: lng,
-          deliveryRadiusKm: Number(deliveryRadiusKm) || 15,
-          serviceAreaRadiusKm: Number(deliveryRadiusKm) || 15,
-          serviceAreaWideDelivery,
           cuisineTags,
           dietType,
           imageUrl: imageUrl.trim() || undefined,
           address: {
-            city: city.trim() || undefined,
-            state: stateName.trim() || undefined,
-            country: 'IN',
+            line1: line1.trim(),
+            line2: line2.trim() || undefined,
+            city: city.trim(),
+            state: stateName.trim(),
+            postalCode: postalCode.trim(),
+            country: country.trim() || 'India',
           },
         }),
       });
@@ -394,6 +422,57 @@ export function VendorDetailPage() {
             </select>
           </label>
           <label>
+            Service charge (%)
+            <input
+              inputMode="decimal"
+              value={serviceCharge}
+              onChange={(e) => setServiceCharge(e.target.value)}
+            />
+          </label>
+          <p style={{ gridColumn: '1 / -1', color: 'var(--fm-muted)', fontSize: 13, margin: 0 }}>
+            Deducted from this shop’s order bill. The shop earns the remainder. New orders use the rate saved here.
+          </p>
+          <label style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
+            <input
+              type="checkbox"
+              style={{ width: 'auto' }}
+              checked={gstEnabled}
+              onChange={(e) => setGstEnabled(e.target.checked)}
+            />
+            Charge GST on food items
+          </label>
+          <label>
+            GST (%)
+            <input
+              type="number"
+              min={0}
+              max={100}
+              step="0.01"
+              disabled={!gstEnabled}
+              value={gstPercent}
+              onChange={(e) => setGstPercent(e.target.value)}
+            />
+          </label>
+          <p style={{ gridColumn: '1 / -1', color: 'var(--fm-muted)', fontSize: 13, margin: 0 }}>
+            Added on this shop’s food item price. Leave off if this menu’s prices already include tax.
+          </p>
+          <label style={{ gridColumn: '1 / -1' }}>
+            Address line
+            <input
+              placeholder="Shop no, street"
+              value={line1}
+              onChange={(e) => setLine1(e.target.value)}
+            />
+          </label>
+          <label style={{ gridColumn: '1 / -1' }}>
+            Address line 2
+            <input
+              placeholder="Area, landmark (optional)"
+              value={line2}
+              onChange={(e) => setLine2(e.target.value)}
+            />
+          </label>
+          <label>
             City
             <input value={city} onChange={(e) => setCity(e.target.value)} />
           </label>
@@ -402,31 +481,25 @@ export function VendorDetailPage() {
             <input value={stateName} onChange={(e) => setStateName(e.target.value)} />
           </label>
           <label>
+            PIN code
+            <input
+              inputMode="numeric"
+              placeholder="600002"
+              value={postalCode}
+              onChange={(e) => setPostalCode(e.target.value)}
+            />
+          </label>
+          <label>
+            Country
+            <input value={country} onChange={(e) => setCountry(e.target.value)} />
+          </label>
+          <label>
             Latitude
             <input inputMode="decimal" value={latitude} onChange={(e) => setLatitude(e.target.value)} />
           </label>
           <label>
             Longitude
             <input inputMode="decimal" value={longitude} onChange={(e) => setLongitude(e.target.value)} />
-          </label>
-          <label>
-            Delivery radius (km)
-            <input
-              inputMode="numeric"
-              value={deliveryRadiusKm}
-              onChange={(e) => setDeliveryRadiusKm(e.target.value)}
-              disabled={serviceAreaWideDelivery}
-            />
-          </label>
-          <label style={{ gridColumn: '1 / -1', display: 'flex', gap: 8, alignItems: 'flex-start' }}>
-            <input
-              type="checkbox"
-              checked={serviceAreaWideDelivery}
-              onChange={(e) => setServiceAreaWideDelivery(e.target.checked)}
-            />
-            <span>
-              <strong>Service-area delivery (no radius limit)</strong>
-            </span>
           </label>
           <fieldset style={{ gridColumn: '1 / -1', border: '1px solid var(--fm-border, #ddd)', padding: 12 }}>
             <legend>Cuisine tags</legend>

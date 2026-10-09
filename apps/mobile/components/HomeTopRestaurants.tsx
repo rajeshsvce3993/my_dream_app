@@ -11,6 +11,7 @@ export type TopRestaurantCard = {
   distanceKm?: number;
   deliveryEstimateMinutes?: number;
   imageUrl?: string;
+  offerPercent?: number;
 };
 
 type Props = {
@@ -112,12 +113,14 @@ export function HomeTopRestaurants({ title, vendors, viewAllPath, viewAllLabel }
                     <Text style={{ color: theme.muted, fontSize: 12 }}>{v.distanceKm.toFixed(1)} km</Text>
                   ) : null}
                 </View>
-                <View style={{ flexDirection: 'row', alignItems: 'center', gap: 5 }}>
-                  <Ionicons name="bicycle-outline" size={13} color={theme.success} />
-                  <Text style={{ color: theme.success, fontWeight: '600', fontSize: 11 }} numberOfLines={1}>
-                    Free delivery on select orders
-                  </Text>
-                </View>
+                {v.offerPercent ? (
+                  <View style={{ flexDirection: 'row', alignItems: 'center', gap: 5 }}>
+                    <Ionicons name="pricetag-outline" size={13} color={theme.discount} />
+                    <Text style={{ color: theme.discount, fontWeight: '600', fontSize: 11 }} numberOfLines={1}>
+                      Up to {v.offerPercent}% off on selected orders
+                    </Text>
+                  </View>
+                ) : null}
               </View>
             </Pressable>
           );

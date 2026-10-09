@@ -15,8 +15,10 @@ import { quoteVendorOffers, quoteVendorOffersBatch, type VendorOfferComparison }
 import { VendorProductModel } from '../products/vendorProduct.model.js';
 import { parseHomeVerticals, type HomeVertical } from './homeVerticals.types.js';
 import { parseHomeTopPicks, type HomeTopPick } from './homeTopPicks.types.js';
+import { filterTopPicksSoldInServiceAreas } from './topPickAvailability.service.js';
 import { normalizeSeedPrice } from '../../common/money.util.js';
 import { VendorModel } from '../vendors/vendor.model.js';
+import { listCustomerVendors } from '../vendors/vendorStore.service.js';
 import {
   pickCheapestQuoteForDisplay,
   productCardPriceFromQuote,
@@ -649,17 +651,17 @@ async function resolveHomeVerticalsForFeed(): Promise<ResolvedHomeVertical[]> {
 async function resolveHomeTopPicks(): Promise<HomeTopPick[]> {
   const raw = (await getConfigValue<unknown>('home.topPicks', [])) ?? [];
   try {
-    return parseHomeTopPicks(raw)
-      .filter((p) => p.enabled)
-      .sort((a, b) => a.sortOrder - b.sortOrder);
+    const parsed = parseHomeTopPicks(raw);
+    const available = await filterTopPicksSoldInServiceAreas(parsed);
+    return available.filter((p) => p.enabled).sort((a, b) => a.sortOrder - b.sortOrder);
   } catch {
     return [];
   }
 }
 
 export async function buildHomeFeed(lng?: number, lat?: number) {
-  const sections =
-    (await getConfigValue<
+  const [sections, deliveryPromise, greeting] = await Promise.all([
+    getConfigValue<
       Array<{
         id: string;
         type: string;
@@ -668,23 +670,21 @@ export async function buildHomeFeed(lng?: number, lat?: number) {
         subtitle?: { en: string; ta?: string };
         config?: Record<string, unknown>;
       }>
-    >('home.sections', [])) ?? [];
+    >('home.sections', []).then((value) => value ?? []),
+    getConfigValue<{ en: string; ta?: string }>('home.deliveryPromise', {
+      en: 'Delivery in 18–25 min',
+      ta: '18–25 நிமிடத்தில் விநியோகம்',
+    }),
+    getConfigValue<{ en: string; ta?: string }>('home.greetingTemplate', {
+      en: 'What do you need today?',
+      ta: 'இன்று என்ன வேண்டும்?',
+    }),
+  ]);
 
-  const deliveryPromise = await getConfigValue<{ en: string; ta?: string }>('home.deliveryPromise', {
-    en: 'Delivery in 18–25 min',
-    ta: '18–25 நிமிடத்தில் விநியோகம்',
-  });
-
-  const greeting = await getConfigValue<{ en: string; ta?: string }>('home.greetingTemplate', {
-    en: 'What do you need today?',
-    ta: 'இன்று என்ன வேண்டும்?',
-  });
-
-  const resolved = [];
-  for (const section of sections.filter((s) => s.enabled)) {
+  const resolved = await Promise.all(
+    sections.filter((s) => s.enabled).map(async (section) => {
     if (section.type === 'delivery_promise') {
-      resolved.push({ ...section, data: { promise: deliveryPromise } });
-      continue;
+      return { ...section, data: { promise: deliveryPromise } };
     }
     if (section.type === 'hero_banner') {
       const hero = await getConfigValue('home.hero', {
@@ -696,22 +696,19 @@ export async function buildHomeFeed(lng?: number, lat?: number) {
         ctaLabel: { en: 'Shop now', ta: 'இப்போது வாங்க' },
         ctaPath: '/products',
       });
-      resolved.push({ ...section, data: hero });
-      continue;
+      return { ...section, data: hero };
     }
     if (section.type === 'top_picks') {
       const picks = await resolveHomeTopPicks();
-      resolved.push({ ...section, data: { picks } });
-      continue;
+      return { ...section, data: { picks } };
     }
     if (section.type === 'vertical_shortcuts') {
       const verticals = await resolveHomeVerticalsForFeed();
-      resolved.push({ ...section, data: { verticals } });
-      continue;
+      return { ...section, data: { verticals } };
     }
     if (section.type === 'category_shortcuts') {
       const browse = await resolveCategoryBrowseSettings();
-      resolved.push({
+      return {
         ...section,
         data: {
           categories: browse?.categories ?? [],
@@ -719,8 +716,7 @@ export async function buildHomeFeed(lng?: number, lat?: number) {
           subcategoryLimit: browse?.subcategoryLimit ?? 20,
           defaultSubcategorySlugByParent: browse?.defaultSubcategorySlugByParent ?? {},
         },
-      });
-      continue;
+      };
     }
     if (section.type === 'product_row') {
       const limit = Number(section.config?.limit ?? 8);
@@ -749,41 +745,35 @@ export async function buildHomeFeed(lng?: number, lat?: number) {
       const viewAllPath = section.config?.viewAllPath as string | undefined;
       const viewAllCategorySlug = section.config?.viewAllCategorySlug as string | undefined;
       const viewAllLabel = section.config?.viewAllLabel as { en: string; ta?: string } | string | undefined;
-      resolved.push({
+      return {
         ...section,
         data: { products, layout, viewAllPath, viewAllCategorySlug, viewAllLabel },
-      });
-      continue;
+      };
     }
     if (section.type === 'vendor_row') {
-      const maxRadius = await getConfigValue<number>('vendor.search.maxRadiusKm', 25);
       const limit = Number(section.config?.limit ?? 8);
-      const vendors = await VendorModel.find({ status: 'ACTIVE' }).limit(limit).lean();
-      const withDistance = vendors.map((v) => {
-        let distanceKm: number | undefined;
-        if (lng !== undefined && lat !== undefined && v.location?.coordinates) {
-          const [vlng, vlat] = v.location.coordinates;
-          distanceKm = haversineKm(lng, lat, vlng, vlat);
-        }
-        return {
-          id: v._id.toString(),
-          name: v.name,
-          rating: v.rating,
-          ratingCount: v.ratingCount,
-          distanceKm,
-          deliveryEstimateMinutes: distanceKm != null ? Math.round(20 + distanceKm * 3) : 30,
-          withinService: distanceKm === undefined || distanceKm <= maxRadius,
-          imageUrl: v.imageUrl || undefined,
-          cuisineTags: Array.isArray(v.cuisineTags) ? v.cuisineTags : [],
-        };
-      });
+      const listed = await listCustomerVendors({ lng, lat, page: 1, limit });
       const viewAllPath = (section.config?.viewAllPath as string) ?? '/restaurants';
       const viewAllLabel = section.config?.viewAllLabel as { en: string; ta?: string } | string | undefined;
-      resolved.push({
+      return {
         ...section,
-        data: { vendors: withDistance, viewAllPath, viewAllLabel },
-      });
-      continue;
+        data: {
+          vendors: listed.items.map((vendor) => ({
+            id: vendor.id,
+            name: vendor.name,
+            rating: vendor.rating,
+            ratingCount: vendor.ratingCount,
+            distanceKm: vendor.distanceKm,
+            deliveryEstimateMinutes: vendor.deliveryEstimateMinutes,
+            withinService: true,
+            imageUrl: vendor.imageUrl,
+            cuisineTags: vendor.cuisineTags ?? [],
+            offerPercent: vendor.offerPercent,
+          })),
+          viewAllPath,
+          viewAllLabel,
+        },
+      };
     }
     if (section.type === 'promo_strip') {
       const promos = await getConfigValue<
@@ -798,30 +788,19 @@ export async function buildHomeFeed(lng?: number, lat?: number) {
           tone?: string;
         }>
       >('home.promos', []);
-      resolved.push({ ...section, data: { promos } });
-      continue;
+      return { ...section, data: { promos } };
     }
     if (section.type === 'value_props') {
       const props = await getConfigValue('home.valueProps', []);
-      resolved.push({ ...section, data: { props } });
-      continue;
+      return { ...section, data: { props } };
     }
-    resolved.push({ ...section, data: null });
-  }
+    return { ...section, data: null };
+    }),
+  );
 
   return {
     greeting,
     deliveryPromise,
     sections: resolved,
   };
-}
-
-function haversineKm(lng1: number, lat1: number, lng2: number, lat2: number): number {
-  const toRad = (d: number) => (d * Math.PI) / 180;
-  const R = 6371;
-  const dLat = toRad(lat2 - lat1);
-  const dLng = toRad(lng2 - lng1);
-  const a =
-    Math.sin(dLat / 2) ** 2 + Math.cos(toRad(lat1)) * Math.cos(toRad(lat2)) * Math.sin(dLng / 2) ** 2;
-  return R * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
 }

@@ -13,7 +13,6 @@ import {
 import { Ionicons } from '@expo/vector-icons';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { apiRequest } from '../lib/api';
-import { text } from '../lib/locale';
 import { useAppLocation } from '../lib/usePublicConfig';
 import { useDeliveryAddress } from '../lib/useDeliveryAddress';
 import { formatMoney } from '../lib/format';
@@ -25,28 +24,17 @@ type CartCalc = {
   grandTotal: number;
   subtotal: number;
   shippingTotal: number;
+  platformFee?: number;
+  taxTotal?: number;
   lines: Array<{
     productName: { en: string };
     quantity: number;
     unitPrice: number;
+    taxAmount?: number;
     lineTotal: number;
     imageUrl?: string;
-    vendorName?: string;
   }>;
 };
-
-type DeliverySlotConfig = {
-  id: string;
-  icon?: string;
-  title: { en: string };
-  subtitle: { en: string };
-};
-
-const DEFAULT_SLOTS: DeliverySlotConfig[] = [
-  { id: 'instant', icon: 'flash', title: { en: 'Instant' }, subtitle: { en: '10 mins' } },
-  { id: 'standard', icon: 'time-outline', title: { en: 'Standard' }, subtitle: { en: '30–40 mins' } },
-  { id: 'scheduled', icon: 'calendar-outline', title: { en: 'Schedule' }, subtitle: { en: 'Pick a time' } },
-];
 
 type PaymentMethod = 'COD' | 'RAZORPAY' | 'STRIPE';
 
@@ -92,7 +80,6 @@ export default function CheckoutScreen() {
   const { notifyOrderPlaced } = useCartFeedback();
   const location = useAppLocation();
   const { hasSavedAddress } = useDeliveryAddress();
-  const [slot, setSlot] = useState('instant');
   const [paymentMethod, setPaymentMethod] = useState<PaymentMethod>('COD');
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -109,8 +96,6 @@ export default function CheckoutScreen() {
   });
 
   const currency = (config.data?.['currency.symbol'] as string) ?? '₹';
-  const timeSlots =
-    (config.data?.['mobile.checkout.deliverySlots'] as DeliverySlotConfig[] | undefined) ?? DEFAULT_SLOTS;
 
   async function placeOrder() {
     setError(null);
@@ -156,7 +141,12 @@ export default function CheckoutScreen() {
     );
   }
 
-  const deliveryFree = cart.data.shippingTotal === 0;
+  const deliveryCharge = cart.data.shippingTotal + (cart.data.platformFee ?? 0);
+  const deliveryFree = deliveryCharge === 0;
+  const itemTotal = cart.data.lines.reduce(
+    (sum, line) => sum + Math.max(0, line.lineTotal - (line.taxAmount ?? 0)),
+    0,
+  );
   const footerPad = Math.max(insets.bottom, 8) + spacing.md;
   const itemCount = cart.data.lines.reduce((s, l) => s + l.quantity, 0);
 
@@ -217,56 +207,6 @@ export default function CheckoutScreen() {
               </Text>
             </Pressable>
           </View>
-        </View>
-
-        {/* Delivery time */}
-        <SectionLabel>Delivery time</SectionLabel>
-        <View style={{ flexDirection: 'row', gap: 8 }}>
-          {timeSlots.map((s) => {
-            const selected = slot === s.id;
-            return (
-              <Pressable
-                key={s.id}
-                onPress={() => setSlot(s.id)}
-                style={{
-                  flex: 1,
-                  paddingVertical: 10,
-                  paddingHorizontal: 8,
-                  borderRadius: radius.sm,
-                  borderWidth: 1,
-                  borderColor: selected ? theme.bannerBg : theme.border,
-                  backgroundColor: selected ? theme.bannerBg : theme.white,
-                  alignItems: 'center',
-                  gap: 4,
-                }}
-              >
-                <Ionicons
-                  name={(s.icon ?? 'time-outline') as keyof typeof Ionicons.glyphMap}
-                  size={18}
-                  color={selected ? theme.white : theme.muted}
-                />
-                <Text
-                  style={{
-                    fontWeight: '700',
-                    fontSize: 12,
-                    color: selected ? theme.white : theme.text,
-                  }}
-                  numberOfLines={1}
-                >
-                  {text(s.title)}
-                </Text>
-                <Text
-                  style={{
-                    fontSize: 10,
-                    color: selected ? 'rgba(255,255,255,0.85)' : theme.muted,
-                  }}
-                  numberOfLines={1}
-                >
-                  {text(s.subtitle)}
-                </Text>
-              </Pressable>
-            );
-          })}
         </View>
 
         {/* Payment */}
@@ -372,11 +312,15 @@ export default function CheckoutScreen() {
                   {line.productName.en}
                 </Text>
                 <Text style={{ color: theme.muted, fontSize: 11, marginTop: 1 }}>
-                  Qty {line.quantity} · {formatMoney(currency, line.unitPrice)}
+                  Qty {line.quantity} ·{' '}
+                  {formatMoney(
+                    currency,
+                    line.quantity > 0 ? Math.max(0, line.lineTotal - (line.taxAmount ?? 0)) / line.quantity : 0,
+                  )}
                 </Text>
               </View>
               <Text style={{ fontWeight: '800', fontSize: 12, color: theme.text }}>
-                {formatMoney(currency, line.lineTotal)}
+                {formatMoney(currency, Math.max(0, line.lineTotal - (line.taxAmount ?? 0)))}
               </Text>
             </View>
           ))}
@@ -385,12 +329,15 @@ export default function CheckoutScreen() {
         {/* Bill */}
         <SectionLabel>Bill details</SectionLabel>
         <View style={styles.card}>
-          <BillRow label="Item total" value={formatMoney(currency, cart.data.subtotal)} />
+          <BillRow label="Item total" value={formatMoney(currency, itemTotal)} />
           <BillRow
-            label="Delivery fee"
-            value={deliveryFree ? 'FREE' : formatMoney(currency, cart.data.shippingTotal)}
+            label="Delivery charges"
+            value={deliveryFree ? 'FREE' : formatMoney(currency, deliveryCharge)}
             valueColor={deliveryFree ? theme.success : theme.text}
           />
+          {(cart.data.taxTotal ?? 0) > 0 ? (
+            <BillRow label="GST" value={formatMoney(currency, cart.data.taxTotal ?? 0)} />
+          ) : null}
           <View
             style={{
               height: StyleSheet.hairlineWidth,

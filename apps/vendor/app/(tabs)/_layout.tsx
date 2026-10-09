@@ -1,7 +1,11 @@
+import { useQuery } from '@tanstack/react-query';
 import { Redirect, Tabs, type Href } from 'expo-router';
-import { ActivityIndicator, StyleSheet, View } from 'react-native';
+import { useEffect } from 'react';
+import { StyleSheet } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import { VendorSplash } from '../../components/VendorSplash';
+import { apiRequest } from '../../lib/api';
 import { useVendorSession } from '../../lib/useVendorSession';
 import { theme } from '../../lib/theme';
 
@@ -9,13 +13,20 @@ export default function TabsLayout() {
   const insets = useSafeAreaInsets();
   const session = useVendorSession();
   const bottomInset = Math.max(insets.bottom, 8);
+  const me = useQuery({
+    queryKey: ['vendor-me'],
+    queryFn: () => apiRequest('/vendor/me'),
+    enabled: session.signedIn,
+    retry: false,
+  });
+
+  useEffect(() => {
+    const status = (me.error as (Error & { status?: number }) | null)?.status;
+    if (status === 403) void session.signOut();
+  }, [me.error, session.signOut]);
 
   if (!session.ready) {
-    return (
-      <View style={{ flex: 1, justifyContent: 'center', backgroundColor: theme.bg }}>
-        <ActivityIndicator color={theme.primary} />
-      </View>
-    );
+    return <VendorSplash />;
   }
 
   if (!session.signedIn) {

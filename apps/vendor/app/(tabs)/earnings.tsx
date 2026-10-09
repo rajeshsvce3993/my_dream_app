@@ -8,7 +8,6 @@ import {
   Text,
   View,
 } from 'react-native';
-import { Ionicons } from '@expo/vector-icons';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { ScreenHeader } from '../../components/ScreenHeader';
 import { apiRequest } from '../../lib/api';
@@ -37,7 +36,7 @@ export default function EarningsScreen() {
     <View style={styles.root}>
       <ScreenHeader title="Earnings" subtitle="Shop payouts" />
       <ScrollView
-        contentContainerStyle={{ padding: spacing.lg, paddingBottom: insets.bottom + 32, gap: spacing.md }}
+        contentContainerStyle={{ padding: spacing.md, paddingBottom: insets.bottom + 24, gap: spacing.sm }}
         refreshControl={
           <RefreshControl
             refreshing={earnings.isFetching && !earnings.isLoading}
@@ -58,40 +57,36 @@ export default function EarningsScreen() {
           </View>
         ) : null}
 
-        {data ? (
-          <>
-            <View style={styles.hero}>
-              <Text style={styles.heroLabel}>Today net</Text>
-              <Text style={styles.heroValue}>{money(data.today.net)}</Text>
-              <Text style={styles.heroMeta}>
-                Gross {money(data.today.gross)} · Commission {money(data.today.commission)} ·{' '}
-                {data.today.orders} orders
-              </Text>
-            </View>
-
-            {(
+        {data
+          ? (
               [
-                { title: 'This week', row: data.thisWeek, icon: 'calendar-outline' as const },
-                { title: 'This month', row: data.thisMonth, icon: 'stats-chart-outline' as const },
-                { title: 'All time', row: data.total, icon: 'trophy-outline' as const },
+                { title: 'All time', row: data.total },
+                { title: 'Today', row: data.today },
+                { title: 'This week', row: data.thisWeek },
+                { title: 'This month', row: data.thisMonth },
               ] as const
             ).map((block) => (
               <View key={block.title} style={styles.card}>
-                <View style={styles.cardTop}>
-                  <View style={styles.icon}>
-                    <Ionicons name={block.icon} size={18} color={theme.delivery} />
-                  </View>
-                  <Text style={styles.cardTitle}>{block.title}</Text>
-                  <Text style={styles.cardNet}>{money(block.row.net)}</Text>
+                <View style={styles.header}>
+                  <Text style={styles.title}>{block.title}</Text>
                 </View>
-                <Text style={styles.cardMeta}>
-                  Gross {money(block.row.gross)} · Fee {money(block.row.commission)} · {block.row.orders}{' '}
-                  orders
-                </Text>
+                <View style={styles.body}>
+                <View style={styles.line}>
+                  <Text style={styles.name}>Sales</Text>
+                  <Text style={styles.sales}>{money(block.row.gross)}</Text>
+                </View>
+                <View style={styles.line}>
+                  <Text style={styles.name}>Earnings</Text>
+                  <Text style={styles.earnings}>{money(block.row.net)}</Text>
+                </View>
+                <View style={styles.line}>
+                  <Text style={styles.name}>Orders</Text>
+                  <Text style={styles.orders}>{block.row.orders}</Text>
+                </View>
+                </View>
               </View>
-            ))}
-          </>
-        ) : null}
+            ))
+          : null}
       </ScrollView>
     </View>
   );
@@ -99,47 +94,36 @@ export default function EarningsScreen() {
 
 const styles = StyleSheet.create({
   root: { flex: 1, backgroundColor: theme.bg },
-  hero: {
-    backgroundColor: theme.headerBg,
-    borderRadius: radius.lg,
-    padding: spacing.xl,
-    ...shadow.card,
-  },
-  heroLabel: {
-    fontSize: 12,
-    fontWeight: '700',
-    color: theme.onHeaderMuted,
-    letterSpacing: 0.4,
-    textTransform: 'uppercase',
-  },
-  heroValue: {
-    marginTop: 8,
-    fontSize: 36,
-    fontWeight: '900',
-    color: theme.onHeader,
-    letterSpacing: -1,
-  },
-  heroMeta: { marginTop: spacing.sm, color: theme.onHeaderMuted, fontSize: 13, fontWeight: '600' },
   card: {
     backgroundColor: theme.white,
     borderRadius: radius.md,
-    padding: spacing.lg,
     borderWidth: 1,
     borderColor: theme.border,
+    overflow: 'hidden',
     ...shadow.card,
   },
-  cardTop: { flexDirection: 'row', alignItems: 'center', gap: 10 },
-  icon: {
-    width: 36,
-    height: 36,
-    borderRadius: 10,
-    backgroundColor: theme.primaryMuted,
+  header: {
+    backgroundColor: '#F7F4EF',
+    paddingVertical: 6,
+    paddingHorizontal: 12,
     alignItems: 'center',
-    justifyContent: 'center',
+    borderBottomWidth: StyleSheet.hairlineWidth,
+    borderBottomColor: theme.border,
   },
-  cardTitle: { flex: 1, fontSize: 15, fontWeight: '800', color: theme.text },
-  cardNet: { fontSize: 18, fontWeight: '900', color: theme.primaryDark },
-  cardMeta: { marginTop: 10, fontSize: 12, color: theme.muted, fontWeight: '600' },
+  body: { paddingVertical: 8, paddingHorizontal: 12, gap: 4 },
+  title: {
+    fontSize: 13,
+    fontWeight: '900',
+    color: '#1A5563',
+    letterSpacing: 0.6,
+    textAlign: 'center',
+    textTransform: 'uppercase',
+  },
+  line: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', gap: 12 },
+  name: { fontSize: 12, fontWeight: '700', color: theme.muted },
+  sales: { fontSize: 15, fontWeight: '800', color: '#1A5563' },
+  earnings: { fontSize: 15, fontWeight: '800', color: theme.primaryDark },
+  orders: { fontSize: 15, fontWeight: '800', color: theme.delivery },
   errorBox: { padding: spacing.lg, alignItems: 'center', gap: 8 },
   errorText: { color: theme.danger, textAlign: 'center', fontWeight: '600' },
   retry: { color: theme.delivery, fontWeight: '800' },

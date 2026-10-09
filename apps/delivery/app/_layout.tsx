@@ -6,6 +6,10 @@ import { theme } from '../lib/theme';
 
 const queryClient = new QueryClient();
 
+export const unstable_settings = {
+  initialRouteName: 'index',
+};
+
 export default function RootLayout() {
   return (
     <SafeAreaProvider>
@@ -13,14 +17,14 @@ export default function RootLayout() {
       <QueryClientProvider client={queryClient}>
         <Stack
           screenOptions={{
-            contentStyle: { backgroundColor: theme.bg },
-            headerStyle: { backgroundColor: theme.headerBg },
-            headerTintColor: theme.onHeader,
-            headerTitleStyle: { fontWeight: '700', color: theme.onHeader },
+            headerShown: false,
+            contentStyle: { backgroundColor: theme.primaryDark },
+            animation: 'fade',
           }}
         >
+          <Stack.Screen name="index" options={{ headerShown: false, animation: 'none' }} />
+          <Stack.Screen name="login" options={{ headerShown: false, animation: 'fade' }} />
           <Stack.Screen name="(tabs)" options={{ headerShown: false }} />
-          <Stack.Screen name="login" options={{ headerShown: false }} />
         </Stack>
       </QueryClientProvider>
     </SafeAreaProvider>

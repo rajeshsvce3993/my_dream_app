@@ -3,6 +3,7 @@ import { useState } from 'react';
 import { Link, useParams } from 'react-router-dom';
 import { apiRequest } from '../api/client';
 import { useLocale } from '../context/LocaleContext';
+import { useLocationContext } from '../context/LocationContext';
 import { useBrand } from '../hooks/useBrand';
 import { formatMoney } from '../lib/format';
 
@@ -38,6 +39,7 @@ type Comparison = {
 export function ProductDetailPage() {
   const { id } = useParams();
   const { tName } = useLocale();
+  const { query: locationQuery } = useLocationContext();
   const { currency } = useBrand();
   const qc = useQueryClient();
   const [variantId, setVariantId] = useState('');
@@ -54,10 +56,10 @@ export function ProductDetailPage() {
   const activeVariantId = variantId || detail.data?.variants[0]?._id || '';
 
   const comparison = useQuery({
-    queryKey: ['comparison', id, activeVariantId],
+    queryKey: ['comparison', id, activeVariantId, locationQuery.lng, locationQuery.lat],
     queryFn: () =>
       apiRequest<Comparison>(
-        `/products/${id}/vendor-comparison?variantId=${activeVariantId}&lng=80.2707&lat=13.0827`,
+        `/products/${id}/vendor-comparison?variantId=${activeVariantId}&lng=${locationQuery.lng}&lat=${locationQuery.lat}`,
       ),
     enabled: Boolean(id && activeVariantId),
   });
@@ -71,8 +73,8 @@ export function ProductDetailPage() {
           productId: id,
           variantId: activeVariantId,
           quantity: qty,
-          lng: 80.2707,
-          lat: 13.0827,
+          lng: locationQuery.lng,
+          lat: locationQuery.lat,
         }),
       }),
     onSuccess: () => qc.invalidateQueries({ queryKey: ['cart'] }),

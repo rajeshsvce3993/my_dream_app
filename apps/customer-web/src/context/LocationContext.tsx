@@ -12,11 +12,11 @@ export type DeliveryLocation = {
 const STORAGE_KEY = 'dreamfood.location';
 
 const defaultLocation: DeliveryLocation = {
-  label: 'Anna Nagar, Chennai',
-  line1: '#12, 2nd Cross, Anna Nagar',
-  city: 'Chennai',
-  lng: 80.2707,
-  lat: 13.0827,
+  label: 'Tiruvallur, Home',
+  line1: 'Near Tiruvallur Railway Station',
+  city: 'Tiruvallur',
+  lng: 79.9186027,
+  lat: 13.1425869,
   country: 'IN',
 };
 
@@ -34,6 +34,12 @@ function readStored(): DeliveryLocation {
       localStorage.getItem(STORAGE_KEY) ?? localStorage.getItem('freshmart.location');
     if (raw) {
       const parsed = JSON.parse(raw) as DeliveryLocation;
+      const retired =
+        Math.abs(parsed.lng - 80.2707) < 0.0001 && Math.abs(parsed.lat - 13.0827) < 0.0001;
+      if (retired) {
+        localStorage.setItem(STORAGE_KEY, JSON.stringify(defaultLocation));
+        return defaultLocation;
+      }
       localStorage.setItem(STORAGE_KEY, JSON.stringify(parsed));
       return parsed;
     }

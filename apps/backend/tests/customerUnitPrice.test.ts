@@ -2,16 +2,15 @@ import { describe, expect, it } from 'vitest';
 import { computeCustomerUnitPrice } from '../src/modules/pricing/customerUnitPrice.js';
 
 describe('computeCustomerUnitPrice', () => {
-  it('rounds customer price to half rupee (no .1 / .7 display)', () => {
-    const priced = computeCustomerUnitPrice({ sellingPrice: 42, taxRatePercent: 5 });
-    expect(priced.finalUnitPrice).toBe(44);
-    expect(priced.finalUnitPrice * 2).toBe(Math.round(priced.finalUnitPrice * 2));
+  it('charges 5% of 120 as 6, not 6.50', () => {
+    const priced = computeCustomerUnitPrice({ sellingPrice: 120, taxRatePercent: 5 });
+    expect(priced.taxAmount).toBe(6);
+    expect(priced.finalUnitPrice).toBe(126);
   });
 
-  it('matches catalog and vendor list when tax applies', () => {
-    const a = computeCustomerUnitPrice({ sellingPrice: 99, taxRatePercent: 5 });
-    const b = computeCustomerUnitPrice({ sellingPrice: 99, taxRatePercent: 5 });
-    expect(a.finalUnitPrice).toBe(b.finalUnitPrice);
-    expect(a.finalUnitPrice).toBe(104);
+  it('keeps paisa so split item taxes still add up to 5% of the bill', () => {
+    const a = computeCustomerUnitPrice({ sellingPrice: 45, taxRatePercent: 5 });
+    const b = computeCustomerUnitPrice({ sellingPrice: 75, taxRatePercent: 5 });
+    expect(a.taxAmount + b.taxAmount).toBe(6);
   });
 });

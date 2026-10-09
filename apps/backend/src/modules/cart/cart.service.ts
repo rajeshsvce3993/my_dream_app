@@ -1,5 +1,6 @@
 import mongoose from 'mongoose';
 import { BusinessRuleError, NotFoundError } from '../../common/errors/AppError.js';
+import { roundToPaisa } from '../../common/money.util.js';
 import { ProductModel } from '../products/product.model.js';
 import { ProductVariantModel } from '../products/productVariant.model.js';
 import {
@@ -14,6 +15,8 @@ import { getConfigValue } from '../configuration/configuration.service.js';
 import { CartModel } from './cart.model.js';
 import { CustomerModel } from '../customers/customer.model.js';
 import { assertCustomerInServiceArea } from '../delivery/deliveryServiceAreas.service.js';
+import { foodProductIdSet, getFoodCharges, quoteFoodDeliveryCharge, vendorMenuGstPercent } from '../pricing/foodCharges.service.js';
+import { haversineKm } from '../vendors/vendorDelivery.service.js';
 
 export async function getOrCreateCustomerId(userId: string): Promise<string> {
   let customer = await CustomerModel.findOne({ userId });
@@ -237,7 +240,11 @@ async function quoteForCartLine(input: {
     throw new BusinessRuleError('Unable to price this cart item');
   }
 
-  const taxRate = await getConfigValue<number>('tax.defaultRate', 0);
+  const variant = await ProductVariantModel.findById(input.variantId).select('productId').lean();
+  const foodIds = variant ? await foodProductIdSet([variant.productId.toString()]) : new Set<string>();
+  const taxRate = variant && foodIds.has(variant.productId.toString())
+    ? vendorMenuGstPercent(vendor)
+    : await getConfigValue<number>('tax.defaultRate', 0);
   const { taxAmount, finalUnitPrice } = computeCustomerUnitPrice({
     sellingPrice: mapping.sellingPrice,
     offerDiscount: 0,
@@ -275,6 +282,7 @@ export async function recalculateCart(cartId: string) {
       shippingTotal: 0,
       discountTotal: 0,
       taxTotal: 0,
+      platformFee: 0,
       grandTotal: 0,
       vendorShipping: [],
       insights: [],
@@ -291,60 +299,61 @@ export async function recalculateCart(cartId: string) {
     itemsByVendor.get(key)!.push(item);
   }
 
-  const lines: Array<{
-    vendorId: string;
-    vendorName: string;
-    productId: string;
-    productName: { en: string; ta?: string };
-    variantId: string;
-    variantName: { en: string; ta?: string };
-    imageUrl?: string;
-    quantity: number;
-    unitPrice: number;
-    mrp: number;
-    sellingPrice: number;
-    taxAmount: number;
-    lineTotal: number;
-  }> = [];
-
-  for (const item of cart.items) {
-    const [product, variant, vendor] = await Promise.all([
-      ProductModel.findById(item.productId).lean(),
-      ProductVariantModel.findById(item.variantId).lean(),
-      VendorModel.findById(item.vendorId).lean(),
-    ]);
-    const quote = await quoteForCartLine({
-      vendorId: item.vendorId.toString(),
-      variantId: item.variantId.toString(),
-      quantity: item.quantity,
-      customerLng: lng,
-      customerLat: lat,
-      availabilityPending: Boolean(item.availabilityPending),
-    });
-    lines.push({
-      vendorId: item.vendorId.toString(),
-      vendorName: vendor?.name ?? quote.vendorName,
-      productId: item.productId.toString(),
-      productName: product?.name ?? { en: 'Product' },
-      variantId: item.variantId.toString(),
-      variantName: variant?.name ?? { en: 'Variant' },
-      imageUrl: product?.images?.find((i) => i.isPrimary)?.url ?? product?.images?.[0]?.url,
-      quantity: item.quantity,
-      unitPrice: quote.finalUnitPrice,
-      mrp: quote.mrp,
-      sellingPrice: quote.sellingPrice,
-      taxAmount: quote.taxAmount * item.quantity,
-      lineTotal: quote.finalUnitPrice * item.quantity,
-    });
-  }
-
-  const subtotal = lines.reduce((s, l) => s + l.lineTotal, 0);
-  const shippingPerVendor = await Promise.all(
-    [...itemsByVendor.keys()].map(async (vendorId) => {
-      const fee = await getConfigValue<number>('delivery.defaultFee', 0);
-      return { vendorId, fee };
+  const lines = await Promise.all(
+    cart.items.map(async (item) => {
+      const [product, variant, vendor] = await Promise.all([
+        ProductModel.findById(item.productId).lean(),
+        ProductVariantModel.findById(item.variantId).lean(),
+        VendorModel.findById(item.vendorId).lean(),
+      ]);
+      const quote = await quoteForCartLine({
+        vendorId: item.vendorId.toString(),
+        variantId: item.variantId.toString(),
+        quantity: item.quantity,
+        customerLng: lng,
+        customerLat: lat,
+        availabilityPending: Boolean(item.availabilityPending),
+      });
+      return {
+        vendorId: item.vendorId.toString(),
+        vendorName: vendor?.name ?? quote.vendorName,
+        productId: item.productId.toString(),
+        productName: product?.name ?? { en: 'Product' },
+        variantId: item.variantId.toString(),
+        variantName: variant?.name ?? { en: 'Variant' },
+        imageUrl: product?.images?.find((i) => i.isPrimary)?.url ?? product?.images?.[0]?.url,
+        quantity: item.quantity,
+        unitPrice: quote.finalUnitPrice,
+        mrp: quote.mrp,
+        sellingPrice: quote.sellingPrice,
+        taxAmount: roundToPaisa(quote.taxAmount * item.quantity),
+        lineTotal: quote.finalUnitPrice * item.quantity,
+      };
     }),
   );
+
+  const subtotal = lines.reduce((s, l) => s + l.lineTotal, 0);
+  const [foodCharges, foodProducts] = await Promise.all([
+    getFoodCharges(),
+    foodProductIdSet(lines.map((line) => line.productId)),
+  ]);
+  const vendorDocs = await VendorModel.find({ _id: { $in: [...itemsByVendor.keys()] } })
+    .select('location')
+    .lean();
+  const vendorPoint = new Map(
+    vendorDocs.map((vendor) => [vendor._id.toString(), vendor.location?.coordinates as [number, number] | undefined]),
+  );
+  const drop = cart.deliveryLocation?.coordinates;
+  const shippingPerVendor = [...itemsByVendor.keys()].map((vendorId) => {
+    const hasFood = lines.some((line) => line.vendorId === vendorId && foodProducts.has(line.productId));
+    if (!hasFood) return { vendorId, fee: 0 };
+    const restaurant = vendorPoint.get(vendorId);
+    const distanceKm =
+      drop && drop.length >= 2 && restaurant && restaurant.length >= 2
+        ? haversineKm(drop[0], drop[1], restaurant[0], restaurant[1])
+        : null;
+    return { vendorId, fee: quoteFoodDeliveryCharge(foodCharges, distanceKm) };
+  });
   const shippingTotal = shippingPerVendor.reduce((s, v) => s + v.fee, 0);
 
   const vendorGroups = [...itemsByVendor.keys()].map((vendorId) => {
@@ -358,21 +367,22 @@ export async function recalculateCart(cartId: string) {
     };
   });
 
-  const freeThreshold = await getConfigValue<number>('delivery.freeThreshold', 0);
   const currency = await getConfigValue<string>('currency.symbol', '₹');
   const insights: Array<
     | { type: 'FREE_DELIVERY_GAP'; amountRemaining: number; currency: string }
     | { type: 'MULTI_VENDOR'; vendorCount: number }
     | { type: 'SAVINGS'; amount: number; currency: string }
   > = [];
-  if (freeThreshold > 0 && subtotal > 0 && subtotal < freeThreshold) {
-    insights.push({ type: 'FREE_DELIVERY_GAP', amountRemaining: freeThreshold - subtotal, currency });
-  }
   if (vendorGroups.length > 1) {
     insights.push({ type: 'MULTI_VENDOR', vendorCount: vendorGroups.length });
   }
-  const savings = lines.reduce((s, l) => s + Math.max(0, l.mrp - l.unitPrice) * l.quantity, 0);
+  const savings = lines.reduce((s, l) => {
+    const unitBeforeTax = l.quantity > 0 ? (l.lineTotal - l.taxAmount) / l.quantity : 0;
+    return s + Math.max(0, l.mrp - unitBeforeTax) * l.quantity;
+  }, 0);
   if (savings > 0) insights.push({ type: 'SAVINGS', amount: savings, currency });
+
+  const platformFee = lines.some((line) => foodProducts.has(line.productId)) ? foodCharges.platformFee : 0;
 
   return {
     cart,
@@ -382,8 +392,9 @@ export async function recalculateCart(cartId: string) {
     subtotal,
     shippingTotal,
     discountTotal: lines.reduce((s, l) => s + Math.max(0, l.mrp - l.sellingPrice) * l.quantity, 0),
-    taxTotal: lines.reduce((s, l) => s + l.taxAmount, 0),
-    grandTotal: subtotal + shippingTotal,
+    taxTotal: roundToPaisa(lines.reduce((s, l) => s + l.taxAmount, 0)),
+    platformFee,
+    grandTotal: subtotal + shippingTotal + platformFee,
     vendorShipping: shippingPerVendor,
     insights,
   };

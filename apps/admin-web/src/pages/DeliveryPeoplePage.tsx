@@ -28,6 +28,7 @@ type Row = {
   onboardingComplete?: boolean;
   lastSeenAt?: string;
   vehicleType?: string;
+  serviceAreaIds?: string[];
   documents?: DeliveryDocuments | null;
   activeOrder: { id?: string; orderNumber: string; status: string } | null;
   todayDeliveries: number;
@@ -75,6 +76,17 @@ export function DeliveryPeoplePage() {
   const [docs, setDocs] = useState(emptyDocs);
   const [expandedId, setExpandedId] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
+
+  const areas = useQuery({
+    queryKey: ['delivery-service-areas'],
+    queryFn: async () => {
+      const rows = await apiRequest<Array<{ key: string; value: Array<{ id: string; name: string; radiusKm: number; active?: boolean }> }>>(
+        '/configuration',
+      );
+      const row = rows.find((r) => r.key === 'delivery.serviceAreas');
+      return (row?.value ?? []).filter((a) => a.active !== false);
+    },
+  });
 
   const list = useQuery({
     queryKey: ['delivery-people'],
@@ -152,7 +164,8 @@ export function DeliveryPeoplePage() {
           <h1>Delivery partners</h1>
           <p className="page-lead">
             Onboard riders with mandatory Aadhaar, driving license, vehicle RC, and bank details.
-            Online status comes from the rider app; incomplete or rejected partners cannot go online.
+            When a rider goes online, the app reads their GPS. They only receive orders whose drop-off
+            is in the same launch area as that live location.
           </p>
         </div>
         <button type="button" className="secondary" onClick={() => list.refetch()}>
@@ -268,7 +281,12 @@ export function DeliveryPeoplePage() {
           <button
             type="button"
             disabled={
-              create.isPending || !email || !password || !firstName || password.length < 8 || !docsReady
+              create.isPending ||
+              !email ||
+              !password ||
+              !firstName ||
+              password.length < 8 ||
+              !docsReady
             }
             onClick={() => create.mutate()}
           >
@@ -286,6 +304,7 @@ export function DeliveryPeoplePage() {
             <tr>
               <th>Partner</th>
               <th>KYC</th>
+              <th>Live area</th>
               <th>Status</th>
               <th>Active order</th>
               <th>Last seen</th>
@@ -325,6 +344,15 @@ export function DeliveryPeoplePage() {
                     >
                       {expandedId === row.id ? 'Hide docs' : 'View docs'}
                     </button>
+                  </td>
+                  <td>
+                    {(row.serviceAreaIds ?? []).length
+                      ? (row.serviceAreaIds ?? [])
+                          .map((id) => areas.data?.find((a) => a.id === id)?.name ?? id)
+                          .join(', ')
+                      : row.availability === 'ONLINE'
+                        ? 'Outside zones'
+                        : '—'}
                   </td>
                   <td>
                     <span className={`status-pill ${row.availability === 'ONLINE' ? 'success' : 'info'}`}>
@@ -388,7 +416,7 @@ export function DeliveryPeoplePage() {
                 </tr>
                 {expandedId === row.id && row.documents ? (
                   <tr>
-                    <td colSpan={7}>
+                    <td colSpan={8}>
                       <div className="panel-soft" style={{ padding: 12, fontSize: 13 }}>
                         <strong>KYC pack</strong>
                         <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill,minmax(180px,1fr))', gap: 8, marginTop: 8 }}>

@@ -11,9 +11,9 @@ import {
   markPickedUp,
   rejectOffer,
 } from './deliveryAssignment.service.js';
-import { setAvailability, touchLastSeen, getDeliveryPersonByUserId } from './deliveryAvailability.service.js';
-import { loadOfferCard } from './deliveryDispatch.service.js';
-import { getEarnings, listDeliveryHistory } from './deliveryEarnings.service.js';
+import { setAvailability, touchLastSeen, getDeliveryPersonByUserId, updateRiderLocation } from './deliveryAvailability.service.js';
+import { loadOfferCard, loadOrderDrop, loadOrderPickups } from './deliveryDispatch.service.js';
+import { getEarnings, listDeliveryHistory, riderPaySummary } from './deliveryEarnings.service.js';
 import {
   createDeliveryPerson,
   listDeliveryPeople,
@@ -34,9 +34,13 @@ deliveryPersonRouter.get('/me', authenticate, requireAnyRole('DELIVERY'), async 
     const offer = await loadOfferCard(person._id.toString());
     const active = person.activeOrderId
       ? await OrderModel.findById(person.activeOrderId)
-          .select('orderNumber status deliveryAddress grandTotal currency deliveryEarning shippingTotal')
+          .select('orderNumber status customerId deliveryAddress grandTotal currency deliveryEarning shippingTotal')
           .lean()
       : null;
+    const pay = active ? await riderPaySummary(active) : null;
+    const pickedUp = active?.status === 'OUT_FOR_DELIVERY' || active?.status === 'DELIVERED';
+    const pickups = active && !pickedUp ? await loadOrderPickups(active._id) : [];
+    const drop = active && pickedUp ? await loadOrderDrop(active) : null;
     res.json(
       successResponse({
         availability: person.availability,
@@ -45,7 +49,12 @@ deliveryPersonRouter.get('/me', authenticate, requireAnyRole('DELIVERY'), async 
         lastSeenAt: person.lastSeenAt,
         vehicleType: person.vehicleType ?? null,
         rejectionReason: person.rejectionReason ?? null,
-        activeOrder: active,
+        activeOrder: active
+          ? (() => {
+              const { deliveryAddress: _address, customerId: _customerId, ...visible } = active;
+              return { ...visible, ...(pay ?? {}), pickups, drop };
+            })()
+          : active,
         offer,
         profile: await (async () => {
           const user = await UserModel.findById(req.auth!.sub).select('firstName lastName email phone').lean();
@@ -69,11 +78,61 @@ deliveryPersonRouter.post(
   '/me/availability',
   authenticate,
   requireAnyRole('DELIVERY'),
-  validate({ body: z.object({ availability: z.enum(['ONLINE', 'OFFLINE']) }) }),
+  validate({
+    body: z
+      .object({
+        availability: z.enum(['ONLINE', 'OFFLINE']),
+        latitude: z.number().min(-90).max(90).optional(),
+        longitude: z.number().min(-180).max(180).optional(),
+      })
+      .superRefine((body, ctx) => {
+        if (body.availability === 'ONLINE' && (body.latitude == null || body.longitude == null)) {
+          ctx.addIssue({
+            code: z.ZodIssueCode.custom,
+            message: 'Current location is required to go online',
+            path: ['latitude'],
+          });
+        }
+      }),
+  }),
   async (req, res, next) => {
     try {
-      const person = await setAvailability(req.auth!.sub, req.body.availability);
-      res.json(successResponse({ availability: person.availability, lastSeenAt: person.lastSeenAt }));
+      const person = await setAvailability(req.auth!.sub, req.body.availability, {
+        latitude: req.body.latitude,
+        longitude: req.body.longitude,
+      });
+      res.json(
+        successResponse({
+          availability: person.availability,
+          lastSeenAt: person.lastSeenAt,
+          serviceAreaIds: person.serviceAreaIds ?? [],
+        }),
+      );
+    } catch (err) {
+      next(err);
+    }
+  },
+);
+
+deliveryPersonRouter.post(
+  '/me/location',
+  authenticate,
+  requireAnyRole('DELIVERY'),
+  validate({
+    body: z.object({
+      latitude: z.number().min(-90).max(90),
+      longitude: z.number().min(-180).max(180),
+    }),
+  }),
+  async (req, res, next) => {
+    try {
+      const person = await updateRiderLocation(req.auth!.sub, req.body);
+      res.json(
+        successResponse({
+          serviceAreaIds: person.serviceAreaIds ?? [],
+          locationUpdatedAt: person.locationUpdatedAt,
+        }),
+      );
     } catch (err) {
       next(err);
     }
@@ -157,6 +216,7 @@ const createSchema = z.object({
     .max(40)
     .transform((v) => v.toUpperCase()),
   documents: deliveryOnboardingDocumentsSchema,
+  serviceAreaIds: z.array(z.string().min(1)).optional(),
   approve: z.boolean().optional(),
 });
 
@@ -220,6 +280,7 @@ deliveryPersonRouter.patch(
       firstName: z.string().min(1).max(100).optional(),
       lastName: z.string().max(100).optional(),
       rejectionReason: z.string().max(300).optional(),
+      serviceAreaIds: z.array(z.string().min(1)).optional(),
       documents: deliveryOnboardingDocumentsSchema.partial().optional(),
     }),
   }),

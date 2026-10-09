@@ -7,6 +7,8 @@ import { DeliveryPersonModel } from '../src/modules/delivery/deliveryPerson.mode
 import { DeliveryOfferModel } from '../src/modules/delivery/deliveryOffer.model.js';
 import { acceptOffer } from '../src/modules/delivery/deliveryAssignment.service.js';
 import { dispatchOrder } from '../src/modules/delivery/deliveryDispatch.service.js';
+import { ConfigurationModel } from '../src/modules/configuration/configuration.model.js';
+import { DELIVERY_SERVICE_AREAS_KEY } from '../src/modules/delivery/deliveryServiceAreas.service.js';
 
 let memory: MongoMemoryServer;
 
@@ -32,7 +34,7 @@ async function makeOrder() {
   return OrderModel.create({
     orderNumber: `ORD-${Date.now()}-${Math.random().toString(16).slice(2)}`,
     customerId: new mongoose.Types.ObjectId(),
-    status: 'PACKED',
+    status: 'READY_FOR_PICKUP',
     paymentStatus: 'CAPTURED',
     items: [
       {
@@ -52,13 +54,19 @@ async function makeOrder() {
     grandTotal: 140,
     currency: 'INR',
     deliveryAddress: { line1: '12 Anna Nagar', city: 'Chennai', country: 'IN' },
-    timeline: [{ status: 'PACKED', at: new Date() }],
+    timeline: [{ status: 'READY_FOR_PICKUP', at: new Date() }],
   });
 }
 
 beforeAll(async () => {
   memory = await MongoMemoryServer.create();
   await mongoose.connect(memory.getUri());
+  await ConfigurationModel.create({
+    key: DELIVERY_SERVICE_AREAS_KEY,
+    value: [],
+    category: 'delivery',
+    isPublic: true,
+  });
 });
 
 afterAll(async () => {
@@ -133,13 +141,54 @@ describe('delivery assignment', () => {
     expect(offers).toBe(0);
   });
 
-  it('offers a packed order to an online eligible rider', async () => {
+  it('offers a ready order to an online eligible rider', async () => {
     await DeliveryPersonModel.updateMany({}, { $set: { availability: 'OFFLINE', activeOrderId: new mongoose.Types.ObjectId() } });
     const order = await makeOrder();
     const rider = await makeRider('Online', 'ONLINE');
     await dispatchOrder(order._id.toString());
     const offer = await DeliveryOfferModel.findOne({ orderId: order._id, status: 'PENDING' }).lean();
     expect(offer?.deliveryPersonId.toString()).toBe(rider.person._id.toString());
+  });
+
+  it('offers a zoned order only to an online rider with a fresh location in that area', async () => {
+    await ConfigurationModel.updateOne(
+      { key: DELIVERY_SERVICE_AREAS_KEY },
+      {
+        $set: {
+          value: [
+            {
+              id: 'tiruvallur-home',
+              name: 'Tiruvallur',
+              latitude: 13.1425869,
+              longitude: 79.9186027,
+              radiusKm: 25,
+              outsideKm: 3,
+              active: true,
+            },
+          ],
+        },
+      },
+    );
+    try {
+      await DeliveryPersonModel.updateMany({}, {
+        $set: { availability: 'OFFLINE', activeOrderId: new mongoose.Types.ObjectId() },
+      });
+      const order = await makeOrder();
+      order.deliveryAddress.location = { type: 'Point', coordinates: [79.9186027, 13.1425869] };
+      await order.save();
+      const rider = await makeRider('Zoned', 'ONLINE');
+      await dispatchOrder(order._id.toString());
+      expect(await DeliveryOfferModel.countDocuments({ orderId: order._id })).toBe(0);
+
+      rider.person.currentLocation = { type: 'Point', coordinates: [79.9186027, 13.1425869] };
+      rider.person.locationUpdatedAt = new Date();
+      await rider.person.save();
+      await dispatchOrder(order._id.toString());
+      const offer = await DeliveryOfferModel.findOne({ orderId: order._id, status: 'PENDING' }).lean();
+      expect(offer?.deliveryPersonId.toString()).toBe(rider.person._id.toString());
+    } finally {
+      await ConfigurationModel.updateOne({ key: DELIVERY_SERVICE_AREAS_KEY }, { $set: { value: [] } });
+    }
   });
 
   it('does not offer a second order to a rider who already has an active delivery', async () => {

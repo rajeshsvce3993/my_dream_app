@@ -3,7 +3,7 @@ import { router } from 'expo-router';
 import { AppSplashScreen } from '../components/AppSplashScreen';
 import { readOnboardingComplete } from '../lib/onboardingStorage';
 
-const MIN_SPLASH_MS = 1600;
+const MIN_SPLASH_MS = 400;
 
 /**
  * Boot gate: branded splash, then onboarding (first run) or home.

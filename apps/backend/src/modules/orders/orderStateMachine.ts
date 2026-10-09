@@ -19,11 +19,11 @@ export type OrderStatus = (typeof ORDER_STATUSES)[number];
 
 const transitions: Record<OrderStatus, OrderStatus[]> = {
   PENDING_PAYMENT: ['PAID', 'FAILED', 'CANCELLED'],
-  PAID: ['CONFIRMED', 'REFUND_REQUESTED', 'CANCELLED'],
+  PAID: ['CONFIRMED', 'PROCESSING', 'REFUND_REQUESTED', 'CANCELLED'],
   CONFIRMED: ['PROCESSING', 'CANCELLED'],
   PROCESSING: ['PACKED', 'CANCELLED'],
-  PACKED: ['READY_FOR_PICKUP', 'OUT_FOR_DELIVERY'],
-  READY_FOR_PICKUP: ['DELIVERED', 'CANCELLED'],
+  PACKED: ['READY_FOR_PICKUP', 'CANCELLED'],
+  READY_FOR_PICKUP: ['OUT_FOR_DELIVERY', 'DELIVERED', 'CANCELLED'],
   OUT_FOR_DELIVERY: ['DELIVERED', 'CANCELLED'],
   DELIVERED: ['REFUND_REQUESTED'],
   CANCELLED: [],
@@ -31,6 +31,10 @@ const transitions: Record<OrderStatus, OrderStatus[]> = {
   REFUNDED: [],
   FAILED: [],
 };
+
+export function allowedNextStatuses(from: OrderStatus): OrderStatus[] {
+  return transitions[from] ?? [];
+}
 
 export function assertValidTransition(from: OrderStatus, to: OrderStatus): void {
   if (from === to) return;

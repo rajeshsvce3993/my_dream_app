@@ -17,6 +17,9 @@ import {
 } from '../delivery/deliveryServiceAreas.service.js';
 import { parseHomeVerticals } from '../catalog/homeVerticals.types.js';
 import { parseHomeTopPicks } from '../catalog/homeTopPicks.types.js';
+import { assertTopPicksSoldInServiceAreas } from '../catalog/topPickAvailability.service.js';
+import { FOOD_CHARGES_KEY, parseFoodCharges } from '../pricing/foodCharges.service.js';
+import { PARTNER_EARNINGS_KEY, parsePartnerEarnings } from '../delivery/deliveryPartnerEarnings.service.js';
 
 const HOME_VERTICALS_KEY = 'home.verticals';
 const HOME_TOP_PICKS_KEY = 'home.topPicks';
@@ -85,6 +88,37 @@ configurationRouter.patch(
       }
       if (key === HOME_TOP_PICKS_KEY) {
         value = parseHomeTopPicks(req.body.value);
+        await assertTopPicksSoldInServiceAreas(value);
+      }
+      if (key === FOOD_CHARGES_KEY) {
+        value = parseFoodCharges(req.body.value);
+        const existing = await ConfigurationModel.findOne({ key }).lean();
+        if (!existing) {
+          await ConfigurationModel.create({
+            key: FOOD_CHARGES_KEY,
+            value,
+            category: 'food',
+            isPublic: false,
+            description: 'Food delivery (base km + per km), platform fee, and GST. Other verticals are separate.',
+            updatedBy: req.auth!.sub,
+          });
+          res.json(successResponse(null, 'Configuration updated'));
+          return;
+        }
+      }
+      if (key === PARTNER_EARNINGS_KEY) {
+        value = parsePartnerEarnings(req.body.value);
+        const existing = await ConfigurationModel.findOne({ key }).lean();
+        if (!existing) {
+          await ConfigurationModel.create({
+            key: PARTNER_EARNINGS_KEY,
+            value,
+            category: 'delivery',
+            isPublic: false,
+            description: 'Delivery partner earning from restaurant to customer: base km, base charge, and per km.',
+            updatedBy: req.auth!.sub,
+          });
+        }
       }
       if (key === DELIVERY_SERVICE_AREAS_KEY) {
         value = validateDeliveryServiceAreasConfig(req.body.value);

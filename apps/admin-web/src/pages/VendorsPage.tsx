@@ -9,6 +9,9 @@ type Vendor = {
   name: string;
   status: string;
   rating: number;
+  commissionRate?: number;
+  gstEnabled?: boolean;
+  gstPercent?: number;
   deliveryRadiusKm?: number;
   serviceAreaWideDelivery?: boolean;
   cuisineTags?: string[];
@@ -16,7 +19,7 @@ type Vendor = {
   onboardingStatus?: string;
   onboardingComplete?: boolean;
   location?: { coordinates: [number, number] };
-  address?: { city?: string };
+  address?: { line1?: string; city?: string; state?: string; postalCode?: string };
   documents?: { ownerName?: string; fssaiLicense?: string; gstin?: string };
 };
 
@@ -49,17 +52,19 @@ const emptyDocs = {
 
 export function VendorsPage() {
   const qc = useQueryClient();
-  const [code, setCode] = useState('');
   const [name, setName] = useState('');
   const [status, setStatus] = useState<'ACTIVE' | 'INACTIVE' | 'SUSPENDED'>('ACTIVE');
+  const [serviceCharge, setServiceCharge] = useState('10');
+  const [gstEnabled, setGstEnabled] = useState(false);
+  const [gstPercent, setGstPercent] = useState('5');
   const [latitude, setLatitude] = useState('');
   const [longitude, setLongitude] = useState('');
-  const [deliveryRadiusKm, setDeliveryRadiusKm] = useState('15');
   const [line1, setLine1] = useState('');
+  const [line2, setLine2] = useState('');
   const [city, setCity] = useState('');
   const [stateName, setStateName] = useState('');
   const [postalCode, setPostalCode] = useState('');
-  const [serviceAreaWideDelivery, setServiceAreaWideDelivery] = useState(false);
+  const [country, setCountry] = useState('India');
   const [cuisineTags, setCuisineTags] = useState<string[]>([]);
   const [imageUrl, setImageUrl] = useState('');
   const [docs, setDocs] = useState(emptyDocs);
@@ -100,24 +105,32 @@ export function VendorsPage() {
       if (Number.isNaN(lat) || Number.isNaN(lng)) {
         throw new Error('Latitude and longitude must be valid numbers');
       }
+      const commissionRate = Number(serviceCharge);
+      if (serviceCharge.trim() === '' || Number.isNaN(commissionRate) || commissionRate < 0 || commissionRate > 100) {
+        throw new Error('Service charge must be a percentage from 0 to 100');
+      }
+      const gstRate = Number(gstPercent);
+      if (gstEnabled && (gstPercent.trim() === '' || Number.isNaN(gstRate) || gstRate < 0 || gstRate > 100)) {
+        throw new Error('GST must be a percentage from 0 to 100');
+      }
       return apiRequest('/vendors', {
         method: 'POST',
         body: JSON.stringify({
-          code: code.trim().toUpperCase(),
           name: name.trim(),
           status,
+          commissionRate,
+          gstEnabled,
+          gstPercent: Number.isFinite(gstRate) ? gstRate : 5,
           latitude: lat,
           longitude: lng,
-          deliveryRadiusKm: Number(deliveryRadiusKm) || 15,
-          serviceAreaRadiusKm: Number(deliveryRadiusKm) || 15,
           address: {
             line1: line1.trim(),
+            line2: line2.trim() || undefined,
             city: city.trim(),
             state: stateName.trim(),
             postalCode: postalCode.trim(),
-            country: 'IN',
+            country: country.trim() || 'India',
           },
-          serviceAreaWideDelivery,
           cuisineTags,
           imageUrl: imageUrl.trim() || docs.shopPhotoUrl.trim() || undefined,
           phone: docs.ownerPhone.trim(),
@@ -147,15 +160,16 @@ export function VendorsPage() {
     },
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: ['vendors'] });
-      setCode('');
       setName('');
+      setServiceCharge('10');
+      setGstEnabled(false);
+      setGstPercent('5');
       setLatitude('');
       setLongitude('');
       setLine1('');
       setCity('');
       setStateName('');
       setPostalCode('');
-      setServiceAreaWideDelivery(false);
       setCuisineTags([]);
       setImageUrl('');
       setDocs(emptyDocs);
@@ -168,16 +182,16 @@ export function VendorsPage() {
     <div>
       <h1>Vendor shops</h1>
       <p style={{ maxWidth: 720, color: 'var(--fm-muted)', marginBottom: 16 }}>
-        Each shop is one vendor account. Owner KYC (PAN, FSSAI, bank, ID proof) is mandatory before
-        the shop can go live. Staff logins are managed separately on the shop detail page.
+        Each shop is one vendor account. A unique vendor code is created automatically when the shop is saved.
+        Owner KYC (PAN, FSSAI, bank, ID proof) is mandatory before the shop can go live. Staff logins are managed
+        separately on the shop detail page.
       </p>
 
       <div className="panel form-grid" style={{ marginBottom: 24 }}>
         <h2>Add vendor shop</h2>
-        <label>
-          Shop code
-          <input placeholder="SARAVANA-01" value={code} onChange={(e) => setCode(e.target.value)} />
-        </label>
+        <p style={{ gridColumn: '1 / -1', color: 'var(--fm-muted)', fontSize: 13, margin: 0 }}>
+          Vendor code is assigned on save, for example VN-K7Q2MP.
+        </p>
         <label>
           Shop name
           <input placeholder="Saravana South Kitchen" value={name} onChange={(e) => setName(e.target.value)} />
@@ -191,12 +205,57 @@ export function VendorsPage() {
           </select>
         </label>
         <label>
+          Service charge (%)
+          <input
+            inputMode="decimal"
+            placeholder="10"
+            value={serviceCharge}
+            onChange={(e) => setServiceCharge(e.target.value)}
+          />
+        </label>
+        <p style={{ gridColumn: '1 / -1', color: 'var(--fm-muted)', fontSize: 13, margin: 0 }}>
+          Taken from each order bill. A 10% charge on ₹200 leaves ₹180 for the shop and ₹20 for the platform.
+        </p>
+        <label style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
+          <input
+            type="checkbox"
+            style={{ width: 'auto' }}
+            checked={gstEnabled}
+            onChange={(e) => setGstEnabled(e.target.checked)}
+          />
+          Charge GST on food items
+        </label>
+        <label>
+          GST (%)
+          <input
+            type="number"
+            min={0}
+            max={100}
+            step="0.01"
+            disabled={!gstEnabled}
+            value={gstPercent}
+            onChange={(e) => setGstPercent(e.target.value)}
+          />
+        </label>
+        <p style={{ gridColumn: '1 / -1', color: 'var(--fm-muted)', fontSize: 13, margin: 0 }}>
+          Added on this shop’s food item price. Leave off if this menu’s prices already include tax. Each restaurant
+          can use a different rate.
+        </p>
+        <label>
           Address line
           <input placeholder="12 Anna Salai" value={line1} onChange={(e) => setLine1(e.target.value)} />
         </label>
         <label>
+          Address line 2
+          <input
+            placeholder="Area, landmark (optional)"
+            value={line2}
+            onChange={(e) => setLine2(e.target.value)}
+          />
+        </label>
+        <label>
           City
-          <input placeholder="Chennai" value={city} onChange={(e) => setCity(e.target.value)} />
+          <input placeholder="Tiruvallur" value={city} onChange={(e) => setCity(e.target.value)} />
         </label>
         <label>
           State
@@ -204,7 +263,11 @@ export function VendorsPage() {
         </label>
         <label>
           PIN code
-          <input placeholder="600002" value={postalCode} onChange={(e) => setPostalCode(e.target.value)} />
+          <input placeholder="602001" value={postalCode} onChange={(e) => setPostalCode(e.target.value)} />
+        </label>
+        <label>
+          Country
+          <input value={country} onChange={(e) => setCountry(e.target.value)} />
         </label>
         <label>
           Latitude
@@ -223,23 +286,6 @@ export function VendorsPage() {
             value={longitude}
             onChange={(e) => setLongitude(e.target.value)}
           />
-        </label>
-        <label>
-          Delivery radius (km)
-          <input
-            inputMode="numeric"
-            value={deliveryRadiusKm}
-            onChange={(e) => setDeliveryRadiusKm(e.target.value)}
-            disabled={serviceAreaWideDelivery}
-          />
-        </label>
-        <label style={{ gridColumn: '1 / -1', display: 'flex', gap: 8, alignItems: 'center' }}>
-          <input
-            type="checkbox"
-            checked={serviceAreaWideDelivery}
-            onChange={(e) => setServiceAreaWideDelivery(e.target.checked)}
-          />
-          Service-area delivery (no radius limit inside platform zone)
         </label>
         <fieldset style={{ gridColumn: '1 / -1', border: '1px solid var(--fm-border, #ddd)', padding: 12 }}>
           <legend>Cuisine tags</legend>
@@ -383,7 +429,7 @@ export function VendorsPage() {
         <button
           type="button"
           className="btn"
-          disabled={!code || !name || !latitude || !longitude || !docsReady || createMutation.isPending}
+          disabled={!name || !latitude || !longitude || !docsReady || createMutation.isPending}
           onClick={() => createMutation.mutate()}
         >
           {createMutation.isPending ? 'Creating…' : 'Create shop with KYC'}
@@ -399,7 +445,9 @@ export function VendorsPage() {
               <th>Code</th>
               <th>Shop</th>
               <th>Owner / KYC</th>
-              <th>City</th>
+              <th>Address</th>
+              <th>Service charge</th>
+              <th>GST</th>
               <th>Status</th>
               <th>Onboarding</th>
               <th />
@@ -418,7 +466,11 @@ export function VendorsPage() {
                     </div>
                   ) : null}
                 </td>
-                <td>{v.address?.city ?? '—'}</td>
+                <td>
+                  {[v.address?.line1, v.address?.city, v.address?.postalCode].filter(Boolean).join(', ') || '—'}
+                </td>
+                <td>{v.commissionRate ?? 0}%</td>
+                <td>{v.gstEnabled ? `${v.gstPercent ?? 0}%` : 'Off'}</td>
                 <td>{v.status}</td>
                 <td>
                   {v.onboardingStatus ?? (v.onboardingComplete === false ? 'INCOMPLETE' : '—')}

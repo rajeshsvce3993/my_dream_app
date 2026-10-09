@@ -142,4 +142,51 @@ describe('vendor portal', () => {
     expect(results.filter((r) => r.status === 'fulfilled').length).toBe(1);
     expect(results.filter((r) => r.status === 'rejected').length).toBe(1);
   });
+
+  it('requires a reason when the vendor cancels an order', async () => {
+    const vendor = await VendorModel.create({
+      code: 'VC',
+      name: 'Cancel Vendor',
+      location: { type: 'Point', coordinates: [80.2, 13.08] },
+      serviceAreaRadiusKm: 5,
+      deliveryRadiusKm: 5,
+      serviceAreaWideDelivery: true,
+    });
+    const vo = await VendorOrderModel.create({
+      parentOrderId: new mongoose.Types.ObjectId(),
+      vendorId: vendor._id,
+      orderNumber: 'VORD-CANCEL-1',
+      status: 'CONFIRMED',
+      items: [
+        {
+          productId: new mongoose.Types.ObjectId(),
+          variantId: new mongoose.Types.ObjectId(),
+          quantity: 1,
+          unitPrice: 40,
+          lineTotal: 40,
+        },
+      ],
+      subtotal: 40,
+      shippingFee: 0,
+      commissionRate: 0,
+      commissionAmount: 0,
+      vendorPayoutAmount: 40,
+      timeline: [{ status: 'CONFIRMED', at: new Date() }],
+    });
+    const userId = new mongoose.Types.ObjectId().toString();
+
+    await expect(
+      updateVendorOrderStatusForVendor(vendor._id.toString(), vo._id.toString(), 'CANCELLED', userId),
+    ).rejects.toThrow(/reason/i);
+
+    const updated = await updateVendorOrderStatusForVendor(
+      vendor._id.toString(),
+      vo._id.toString(),
+      'CANCELLED',
+      userId,
+      'Item unavailable',
+    );
+    expect(updated.status).toBe('CANCELLED');
+    expect(updated.timeline.at(-1)?.note).toBe('Item unavailable');
+  });
 });

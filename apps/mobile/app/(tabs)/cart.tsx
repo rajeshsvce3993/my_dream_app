@@ -30,13 +30,21 @@ type CartLine = {
   quantity: number;
   unitPrice: number;
   mrp?: number;
+  sellingPrice?: number;
+  taxAmount?: number;
   lineTotal: number;
 };
+
+function lineBeforeTax(line: { lineTotal: number; taxAmount?: number; quantity: number }): number {
+  return Math.max(0, line.lineTotal - (line.taxAmount ?? 0));
+}
 
 type CartCalc = {
   grandTotal: number;
   subtotal: number;
   shippingTotal: number;
+  platformFee?: number;
+  taxTotal?: number;
   discountTotal?: number;
   lines: CartLine[];
   insights?: Array<
@@ -120,7 +128,10 @@ export default function CartScreen() {
   const savingsAmount =
     savingsInsight?.type === 'SAVINGS'
       ? savingsInsight.amount
-      : lines.reduce((s, l) => s + Math.max(0, (l.mrp ?? l.unitPrice) - l.unitPrice) * l.quantity, 0);
+      : lines.reduce((s, l) => {
+          const unit = l.quantity > 0 ? lineBeforeTax(l) / l.quantity : 0;
+          return s + Math.max(0, (l.mrp ?? unit) - unit) * l.quantity;
+        }, 0);
 
   function lineKey(line: Pick<CartLine, 'vendorId' | 'variantId'>) {
     return `${line.vendorId}:${line.variantId}`;
@@ -214,7 +225,9 @@ export default function CartScreen() {
     );
   }
 
-  const deliveryFree = cart.data.shippingTotal === 0;
+  const deliveryCharge = cart.data.shippingTotal + (cart.data.platformFee ?? 0);
+  const deliveryFree = deliveryCharge === 0;
+  const itemTotal = lines.reduce((sum, line) => sum + lineBeforeTax(line), 0);
   const footerPad = Math.max(insets.bottom, 8) + spacing.md;
 
   return (
@@ -310,8 +323,9 @@ export default function CartScreen() {
               }}
             >
               {group.lines.map((line, index) => {
-                const unitStrike =
-                  line.mrp != null && line.mrp > line.unitPrice ? line.mrp : undefined;
+                const lineNet = lineBeforeTax(line);
+                const unitNet = line.quantity > 0 ? lineNet / line.quantity : lineNet;
+                const unitStrike = line.mrp != null && line.mrp > unitNet ? line.mrp : undefined;
                 const lineBusy = pendingLineKey === lineKey(line);
                 const removing = lineBusy && pendingIsRemove;
                 const qtyBusy = lineBusy && !pendingIsRemove;
@@ -462,7 +476,7 @@ export default function CartScreen() {
 
                           <View style={{ flexDirection: 'row', alignItems: 'baseline', gap: 4 }}>
                             <Text style={{ fontWeight: '700', fontSize: 11, color: theme.muted }}>
-                              {formatMoney(currency, line.unitPrice)}
+                              {formatMoney(currency, unitNet)}
                             </Text>
                             {unitStrike != null ? (
                               <Text
@@ -488,7 +502,7 @@ export default function CartScreen() {
                             textAlign: 'right',
                           }}
                         >
-                          {formatMoney(currency, line.lineTotal)}
+                          {formatMoney(currency, lineNet)}
                         </Text>
                       </View>
                     </View>
@@ -544,12 +558,15 @@ export default function CartScreen() {
             Bill details
           </Text>
 
-          <BillRow label="Item total" value={formatMoney(currency, cart.data.subtotal)} />
+          <BillRow label="Item total" value={formatMoney(currency, itemTotal)} />
           <BillRow
-            label="Delivery fee"
-            value={deliveryFree ? 'FREE' : formatMoney(currency, cart.data.shippingTotal)}
+            label="Delivery charges"
+            value={deliveryFree ? 'FREE' : formatMoney(currency, deliveryCharge)}
             valueColor={deliveryFree ? theme.success : theme.text}
           />
+          {(cart.data.taxTotal ?? 0) > 0 ? (
+            <BillRow label="GST" value={formatMoney(currency, cart.data.taxTotal ?? 0)} />
+          ) : null}
           {savingsAmount > 0 ? (
             <BillRow
               label="Item discount"

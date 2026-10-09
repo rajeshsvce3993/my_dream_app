@@ -23,6 +23,28 @@ export function registerNotificationHandlers(): void {
       },
       data: payload,
     }).catch((err) => logger.error({ err }, 'Failed to persist notification'));
+
+    const { VendorOrderModel } = await import('../orders/vendorOrder.model.js');
+    const { VendorStaffModel } = await import('../vendors/vendorStaff.model.js');
+    const slices = await VendorOrderModel.find({ parentOrderId: order._id }).select('vendorId').lean();
+    const staff = await VendorStaffModel.find({
+      vendorId: { $in: slices.map((slice) => slice.vendorId) },
+      approvalStatus: 'APPROVED',
+    })
+      .select('userId')
+      .lean();
+    await Promise.all(
+      staff.map((row) =>
+        NotificationModel.create({
+          userId: row.userId,
+          channel: 'IN_APP',
+          event: 'ORDER_PLACED',
+          title: { en: 'New order' },
+          body: { en: `Order ${payload.orderNumber} is waiting for you to accept.` },
+          data: payload,
+        }).catch((err) => logger.error({ err }, 'Failed to persist vendor order notification')),
+      ),
+    );
   });
 }
 

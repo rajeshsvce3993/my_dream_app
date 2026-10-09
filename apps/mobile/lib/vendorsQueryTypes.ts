@@ -11,6 +11,7 @@ export type CustomerVendorCard = {
   minimumOrderAmount?: number;
   isOpen: boolean;
   productCount: number;
+  offerPercent?: number;
   freeDeliveryThreshold: number;
   cuisineTags?: string[];
   dietType?: 'veg' | 'nonveg' | 'both';

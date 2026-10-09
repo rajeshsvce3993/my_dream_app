@@ -1,6 +1,5 @@
 import { useQuery } from '@tanstack/react-query';
-import { useCallback, useMemo } from 'react';
-import { useFocusEffect } from 'expo-router';
+import { useMemo } from 'react';
 import { apiRequest } from './api';
 import {
   AUTH_ME_QUERY_KEY,
@@ -21,15 +20,8 @@ export function useAuthSession() {
   const tokenQuery = useQuery({
     queryKey: AUTH_TOKEN_QUERY_KEY,
     queryFn: readHasAccessToken,
-    staleTime: 0,
+    staleTime: 5 * 60_000,
   });
-
-  const refetchToken = tokenQuery.refetch;
-  useFocusEffect(
-    useCallback(() => {
-      void refetchToken();
-    }, [refetchToken]),
-  );
 
   const hasToken = tokenQuery.data ?? null;
 
@@ -38,6 +30,7 @@ export function useAuthSession() {
     queryFn: () => apiRequest<Me>('/auth/me'),
     enabled: hasToken === true,
     retry: false,
+    staleTime: 60_000,
   });
 
   const signedIn = hasToken === true && Boolean(me.data);

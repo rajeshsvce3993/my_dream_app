@@ -29,15 +29,21 @@ export function OrderSummary({ cart, actionLabel, actionTo, onAction }: Props) {
             <div>
               <div className="fm-summary-name">{tName(line.productName)}</div>
               <div className="fm-muted-text">
-                {formatMoney(currency, line.unitPrice)} × {line.quantity}
+                {formatMoney(currency, Math.max(0, line.lineTotal - (line.taxAmount ?? 0)) / line.quantity)} ×{' '}
+                {line.quantity}
               </div>
             </div>
           </li>
         ))}
       </ul>
       <div className="fm-summary-row">
-        <span>Subtotal</span>
-        <span>{formatMoney(currency, cart.subtotal)}</span>
+        <span>Item total</span>
+        <span>
+          {formatMoney(
+            currency,
+            cart.lines.reduce((sum, line) => sum + Math.max(0, line.lineTotal - (line.taxAmount ?? 0)), 0),
+          )}
+        </span>
       </div>
       {cart.discountTotal > 0 ? (
         <div className="fm-summary-row fm-discount">
@@ -46,13 +52,15 @@ export function OrderSummary({ cart, actionLabel, actionTo, onAction }: Props) {
         </div>
       ) : null}
       <div className="fm-summary-row">
-        <span>Delivery</span>
-        <span>{formatMoney(currency, cart.shippingTotal)}</span>
+        <span>Delivery charges</span>
+        <span>{formatMoney(currency, cart.shippingTotal + (cart.platformFee ?? 0))}</span>
       </div>
-      <div className="fm-summary-row">
-        <span>Tax</span>
-        <span>{formatMoney(currency, cart.taxTotal)}</span>
-      </div>
+      {cart.taxTotal > 0 ? (
+        <div className="fm-summary-row">
+          <span>GST</span>
+          <span>{formatMoney(currency, cart.taxTotal)}</span>
+        </div>
+      ) : null}
       <div className="fm-summary-row fm-summary-total">
         <strong>TOTAL</strong>
         <strong className="fm-total-price">{formatMoney(currency, cart.grandTotal)}</strong>

@@ -9,11 +9,11 @@ export type AppLocation = {
 };
 
 export const DEFAULT_LOCATION: AppLocation = {
-  label: 'HSR Layout, Sector 2',
-  city: 'Bengaluru',
-  line1: 'B-12, Green View Residency, Sector 45',
-  lng: 80.2707,
-  lat: 13.0827,
+  label: 'Tiruvallur, Home',
+  city: 'Tiruvallur',
+  line1: 'Near Tiruvallur Railway Station',
+  lng: 79.9186027,
+  lat: 13.1425869,
   country: 'IN',
   phone: '+91 98765 43210',
 };

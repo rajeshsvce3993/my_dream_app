@@ -22,6 +22,7 @@ export type CustomerVendorCard = {
   minimumOrderAmount: number;
   isOpen: boolean;
   productCount: number;
+  offerPercent?: number;
   address?: { city?: string };
   cuisineTags?: string[];
   dietType?: 'veg' | 'nonveg' | 'both';
@@ -154,13 +155,13 @@ export function StoresPage() {
               <span className={`qc-store-status ${store.isOpen ? 'is-open' : 'is-closed'}`}>
                 {store.isOpen ? 'Open' : 'Closed'}
               </span>
-              <p className="qc-caption">
-                {store.productCount} items · Min order {formatMoney(currency, store.minimumOrderAmount)}
-              </p>
-              {store.freeDeliveryThreshold > 0 ? (
-                <p className="qc-store-offer">
-                  Free delivery above {formatMoney(currency, store.freeDeliveryThreshold)}
+              <p className="qc-caption">{store.productCount} items</p>
+              {store.offerPercent ? (
+                <p className="qc-caption" style={{ color: '#B83A3A', fontWeight: 700 }}>
+                  Up to {store.offerPercent}% off on selected orders
                 </p>
+              ) : store.deliveryFee > 0 ? (
+                <p className="qc-caption">Delivery {formatMoney(currency, store.deliveryFee)}</p>
               ) : null}
             </div>
           </Link>

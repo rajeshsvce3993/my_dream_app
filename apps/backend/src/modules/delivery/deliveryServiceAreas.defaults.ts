@@ -2,26 +2,32 @@
 export const DEFAULT_DELIVERY_SERVICE_AREAS = [
   {
     id: 'chennai-core',
+    code: '01',
     name: 'Chennai — core',
     latitude: 13.0827,
     longitude: 80.2707,
     radiusKm: 30,
+    outsideKm: 3,
     active: true,
   },
   {
     id: 'bengaluru-hsr',
+    code: '02',
     name: 'Bengaluru — HSR / Bellandur',
     latitude: 12.9116,
     longitude: 77.6389,
     radiusKm: 12,
+    outsideKm: 2,
     active: true,
   },
   {
     id: 'tiruvallur-home',
+    code: '03',
     name: 'Tiruvallur & West Chennai',
     latitude: 13.1425869,
     longitude: 79.9186027,
     radiusKm: 25,
+    outsideKm: 3,
     active: true,
   },
 ];

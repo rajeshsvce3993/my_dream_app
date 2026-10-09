@@ -12,7 +12,9 @@ export const errorHandler: ErrorRequestHandler = (err, req, res, _next) => {
       success: false,
       error: {
         code: 'VALIDATION_ERROR',
-        message: 'Validation failed',
+        message:
+          err.errors.map((e) => `${e.path.join('.') || 'value'}: ${e.message}`).join('; ') ||
+          'Validation failed',
         details: err.errors.map((e) => ({
           path: e.path.join('.'),
           message: e.message,

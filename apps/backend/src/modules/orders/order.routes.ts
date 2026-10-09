@@ -154,7 +154,24 @@ orderRouter.get(
         OrderModel.find(filter).sort({ createdAt: -1 }).skip((page - 1) * limit).limit(limit).lean(),
         OrderModel.countDocuments(filter),
       ]);
-      res.json(successResponse(orders, null, paginatedMeta(page, limit, total) as unknown as Record<string, unknown>));
+      const vendorIds = [...new Set(orders.flatMap((order) => order.items.map((item) => item.vendorId.toString())))];
+      const vendorDocs = await VendorModel.find({ _id: { $in: vendorIds } }).select('name').lean();
+      const vendorNameMap = new Map(vendorDocs.map((vendor) => [vendor._id.toString(), vendor.name]));
+      const rows = orders.map((order) => {
+        const restaurantNames = [
+          ...new Set(
+            order.items
+              .map((item) => vendorNameMap.get(item.vendorId.toString()))
+              .filter((name): name is string => Boolean(name)),
+          ),
+        ];
+        return {
+          ...order,
+          restaurantName: restaurantNames[0] ?? '',
+          restaurantNames,
+        };
+      });
+      res.json(successResponse(rows, null, paginatedMeta(page, limit, total) as unknown as Record<string, unknown>));
     } catch (err) {
       next(err);
     }

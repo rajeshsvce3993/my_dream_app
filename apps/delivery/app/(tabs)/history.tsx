@@ -8,11 +8,10 @@ import {
   Text,
   View,
 } from 'react-native';
-import { Ionicons } from '@expo/vector-icons';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { ScreenHeader } from '../../components/ScreenHeader';
 import { apiRequest } from '../../lib/api';
-import { formatDeliveredAt, money } from '../../lib/format';
+import { formatDeliveredAt, money, orderSerial } from '../../lib/format';
 import { radius, shadow, spacing, theme } from '../../lib/theme';
 
 type Row = {
@@ -21,10 +20,21 @@ type Row = {
   status: string;
   deliveryEarning?: number;
   shippingTotal: number;
+  collectAmount?: number;
+  paymentMethod?: string;
+  earning?: number;
+  grandTotal?: number;
   currency: string;
   deliveredAt?: string;
+  updatedAt?: string;
   deliveryAddress?: { line1?: string; city?: string };
 };
+
+function statusCopy(status: string) {
+  if (status === 'DELIVERED') return { label: 'Delivered', bg: theme.successSoft, color: theme.success };
+  if (status === 'CANCELLED') return { label: 'Cancelled', bg: theme.dangerSoft, color: theme.danger };
+  return { label: 'Closed', bg: '#E4F1F4', color: '#1A5563' };
+}
 
 export default function HistoryScreen() {
   const insets = useSafeAreaInsets();
@@ -51,8 +61,8 @@ export default function HistoryScreen() {
         data={history.data ?? []}
         keyExtractor={(item) => item._id}
         contentContainerStyle={{
-          padding: spacing.lg,
-          paddingBottom: insets.bottom + 32,
+          padding: spacing.md,
+          paddingBottom: insets.bottom + 24,
           flexGrow: 1,
           gap: spacing.sm,
         }}
@@ -65,41 +75,51 @@ export default function HistoryScreen() {
         ListEmptyComponent={
           history.isSuccess ? (
             <View style={styles.empty}>
-              <View style={styles.emptyIcon}>
-                <Ionicons name="time-outline" size={28} color={theme.muted} />
-              </View>
               <Text style={styles.emptyTitle}>No deliveries yet</Text>
-              <Text style={styles.emptyBody}>Completed and cancelled jobs will show up here.</Text>
+              <Text style={styles.emptyBody}>Completed and cancelled orders show up here.</Text>
             </View>
           ) : null
         }
         renderItem={({ item }) => {
-          const delivered = item.status === 'DELIVERED';
-          const address = [item.deliveryAddress?.line1, item.deliveryAddress?.city]
-            .filter(Boolean)
-            .join(', ');
+          const status = statusCopy(item.status);
+          const address = [item.deliveryAddress?.line1, item.deliveryAddress?.city].filter(Boolean).join(', ');
+          const cod = !item.paymentMethod || item.paymentMethod === 'COD';
+          const when = formatDeliveredAt(item.deliveredAt ?? item.updatedAt);
           return (
             <View style={styles.card}>
-              <View style={styles.cardTop}>
-                <Text style={styles.orderNo}>#{item.orderNumber}</Text>
-                <View style={[styles.chip, delivered ? styles.chipSuccess : styles.chipDanger]}>
-                  <Text style={[styles.chipText, { color: delivered ? theme.success : theme.danger }]}>
-                    {delivered ? 'Delivered' : item.status.replaceAll('_', ' ')}
-                  </Text>
+              <View style={styles.head}>
+                <Text style={styles.serial} numberOfLines={1}>
+                  {orderSerial(item.orderNumber)}
+                </Text>
+                <View style={[styles.pill, { backgroundColor: status.bg }]}>
+                  <Text style={[styles.pillText, { color: status.color }]}>{status.label}</Text>
                 </View>
+                <Text style={styles.when} numberOfLines={1}>
+                  {when}
+                </Text>
               </View>
-              {address ? (
-                <Text style={styles.address} numberOfLines={2}>
-                  {address}
-                </Text>
-              ) : null}
-              <View style={styles.cardBottom}>
-                <Text style={styles.earn}>
-                  {money(item.currency, item.deliveryEarning ?? item.shippingTotal)}
-                </Text>
-                {item.deliveredAt ? (
-                  <Text style={styles.when}>{formatDeliveredAt(item.deliveredAt)}</Text>
+              <View style={styles.body}>
+                {address ? (
+                  <View style={styles.place}>
+                    <Text style={styles.placeLabel}>{item.status === 'DELIVERED' ? 'Delivered to' : 'Address'}</Text>
+                    <Text style={styles.placeValue} numberOfLines={2}>
+                      {address}
+                    </Text>
+                  </View>
                 ) : null}
+                <View style={styles.money}>
+                  <View style={styles.pair}>
+                    <Text style={styles.moneyLabel}>Earnings</Text>
+                    <Text style={styles.earn}>{money(item.currency, item.earning ?? item.deliveryEarning ?? 0)}</Text>
+                  </View>
+                  <View style={styles.rule} />
+                  <View style={styles.pair}>
+                    <Text style={styles.moneyLabel}>{cod ? 'Collect' : 'Paid'}</Text>
+                    <Text style={styles.collect}>
+                      {cod ? money(item.currency, item.collectAmount ?? item.grandTotal ?? 0) : 'Online'}
+                    </Text>
+                  </View>
+                </View>
               </View>
             </View>
           );
@@ -114,55 +134,50 @@ const styles = StyleSheet.create({
   card: {
     backgroundColor: theme.white,
     borderRadius: radius.md,
-    padding: spacing.lg,
     borderWidth: 1,
     borderColor: theme.border,
+    overflow: 'hidden',
     ...shadow.card,
   },
-  cardTop: {
+  head: {
     flexDirection: 'row',
     alignItems: 'center',
-    justifyContent: 'space-between',
     gap: 8,
+    backgroundColor: '#F7F4EF',
+    paddingHorizontal: 10,
+    paddingVertical: 8,
+    borderBottomWidth: StyleSheet.hairlineWidth,
+    borderBottomColor: theme.border,
   },
-  orderNo: { fontSize: 15, fontWeight: '800', color: theme.text },
-  chip: {
-    paddingHorizontal: 8,
-    paddingVertical: 3,
-    borderRadius: radius.full,
+  serial: { flex: 1, fontSize: 14, fontWeight: '800', color: '#1A5563' },
+  pill: { paddingHorizontal: 8, paddingVertical: 2, borderRadius: 999 },
+  pillText: { fontSize: 10, fontWeight: '700' },
+  when: { flex: 1, textAlign: 'right', fontSize: 11, fontWeight: '600', color: theme.muted },
+  body: { paddingHorizontal: 12, paddingTop: 8, paddingBottom: 10, gap: 8 },
+  place: { gap: 2 },
+  placeLabel: {
+    fontSize: 9,
+    fontWeight: '700',
+    letterSpacing: 0.5,
+    textTransform: 'uppercase',
+    color: '#8A7B70',
   },
-  chipSuccess: { backgroundColor: theme.successSoft },
-  chipDanger: { backgroundColor: theme.dangerSoft },
-  chipText: { fontSize: 11, fontWeight: '800', textTransform: 'capitalize' },
-  address: { marginTop: 8, fontSize: 13, color: theme.muted, lineHeight: 18 },
-  cardBottom: {
-    marginTop: 10,
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
+  placeValue: { fontSize: 13, fontWeight: '600', color: theme.text, lineHeight: 18 },
+  money: { flexDirection: 'row', alignItems: 'center', justifyContent: 'flex-end', gap: 10 },
+  pair: { alignItems: 'flex-end' },
+  moneyLabel: {
+    fontSize: 9,
+    fontWeight: '700',
+    letterSpacing: 0.5,
+    textTransform: 'uppercase',
+    color: '#8A7B70',
   },
-  earn: { fontSize: 16, fontWeight: '900', color: theme.primaryDark },
-  when: { fontSize: 12, fontWeight: '600', color: theme.muted },
+  earn: { marginTop: 1, fontSize: 13, fontWeight: '800', color: theme.primaryDark },
+  collect: { marginTop: 1, fontSize: 13, fontWeight: '800', color: '#1A5563' },
+  rule: { width: StyleSheet.hairlineWidth, alignSelf: 'stretch', backgroundColor: theme.border, marginVertical: 1 },
   empty: { alignItems: 'center', paddingTop: 48, paddingHorizontal: spacing.xl },
-  emptyIcon: {
-    width: 64,
-    height: 64,
-    borderRadius: 32,
-    backgroundColor: theme.white,
-    borderWidth: 1,
-    borderColor: theme.border,
-    alignItems: 'center',
-    justifyContent: 'center',
-    marginBottom: spacing.md,
-  },
-  emptyTitle: { fontSize: 16, fontWeight: '800', color: theme.text },
-  emptyBody: {
-    marginTop: 6,
-    fontSize: 13,
-    color: theme.muted,
-    textAlign: 'center',
-    lineHeight: 19,
-  },
+  emptyTitle: { fontSize: 15, fontWeight: '800', color: theme.text },
+  emptyBody: { marginTop: 4, fontSize: 13, color: theme.muted, textAlign: 'center', lineHeight: 18 },
   errorBox: { padding: spacing.xl, alignItems: 'center', gap: 8 },
   errorText: { color: theme.danger, textAlign: 'center', fontWeight: '600' },
   retry: { color: theme.delivery, fontWeight: '800' },

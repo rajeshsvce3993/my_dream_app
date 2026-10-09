@@ -5,15 +5,19 @@ import { InventoryModel } from '../inventory/inventory.model.js';
 import { ProductModel } from '../products/product.model.js';
 import { ProductVariantModel } from '../products/productVariant.model.js';
 import { VendorProductModel } from '../products/vendorProduct.model.js';
-import { quoteVendorOffers } from '../pricing/pricing.service.js';
+import { quoteVendorOffers, quoteVendorOffersBatch } from '../pricing/pricing.service.js';
+import { getFoodCharges, quoteCustomerFoodDeliveryCharge, vendorMenuGstPercent } from '../pricing/foodCharges.service.js';
 import { VendorModel } from './vendor.model.js';
-import { isCustomerInAllowedServiceArea } from '../delivery/deliveryServiceAreas.service.js';
+import { vendorIdsAcceptingOrders } from './vendorStaffAccess.service.js';
+import {
+  isCustomerInAllowedServiceArea,
+  vendorSharesCustomerLaunchArea,
+} from '../delivery/deliveryServiceAreas.service.js';
 import type { LocationAvailabilityInfo } from '../delivery/locationAvailability.js';
 import { locationInfoForVendorList } from '../delivery/locationAvailability.js';
 import {
   getVendorSearchRadiusKm,
   haversineKm,
-  isWithinVendorDeliveryRadius,
   isWithinVendorDiscoveryRadius,
 } from './vendorDelivery.service.js';
 import {
@@ -41,6 +45,8 @@ export type CustomerVendorCard = {
   minimumOrderAmount: number;
   isOpen: boolean;
   productCount: number;
+  /** Highest menu markdown, shown as “Up to N% off on selected orders”. */
+  offerPercent?: number;
   cuisineTags: string[];
   dietType?: 'veg' | 'nonveg' | 'both';
   imageUrl?: string;
@@ -131,6 +137,29 @@ async function resolveVendorProductDisplayPrice(input: {
   };
 }
 
+/** Highest percent off (MRP vs selling price) on each restaurant’s active menu. */
+async function maxOfferPercentByVendor(vendorIds: mongoose.Types.ObjectId[]): Promise<Map<string, number>> {
+  if (!vendorIds.length) return new Map();
+  const rows = await VendorProductModel.aggregate<{ _id: mongoose.Types.ObjectId; maxPct: number }>([
+    { $match: { vendorId: { $in: vendorIds }, isActive: true, mrp: { $gt: 0 } } },
+    {
+      $project: {
+        vendorId: 1,
+        pct: {
+          $multiply: [{ $divide: [{ $subtract: ['$mrp', '$sellingPrice'] }, '$mrp'] }, 100],
+        },
+      },
+    },
+    { $group: { _id: '$vendorId', maxPct: { $max: '$pct' } } },
+  ]);
+  const map = new Map<string, number>();
+  for (const row of rows) {
+    const percent = Math.round(row.maxPct);
+    if (percent >= 5) map.set(row._id.toString(), percent);
+  }
+  return map;
+}
+
 function estimateDeliveryMinutes(distanceKm?: number, prepMinutes = 30): number {
   if (distanceKm === undefined) return prepMinutes;
   const travel = Math.round(distanceKm * 4);
@@ -159,7 +188,9 @@ export async function listCustomerVendors(input: {
 }): Promise<{ items: CustomerVendorCard[]; total: number; location?: LocationAvailabilityInfo }> {
   const page = Math.max(1, input.page ?? 1);
   const limit = Math.min(50, Math.max(1, input.limit ?? 20));
-  const maxRadiusKm = await getVendorSearchRadiusKm();
+  let matchedLaunchAreas: Awaited<
+    ReturnType<typeof isCustomerInAllowedServiceArea>
+  >['matchedAreas'] = [];
   if (input.lng !== undefined && input.lat !== undefined) {
     const zone = await isCustomerInAllowedServiceArea(input.lng, input.lat);
     if (!zone.allowed) {
@@ -169,16 +200,29 @@ export async function listCustomerVendors(input: {
         location: locationInfoForVendorList({ inServiceArea: false, vendorCount: 0 }),
       };
     }
+    matchedLaunchAreas = zone.unrestricted ? [] : zone.matchedAreas;
   }
-  const deliveryFee = await getConfigValue<number>('delivery.defaultFee', 0);
-  const freeDeliveryThreshold = await getConfigValue<number>('delivery.freeThreshold', 499);
-  const minimumOrderAmount = await getConfigValue<number>('order.minValue', 100);
+  const foodCharges = await getFoodCharges();
+  const minimumOrderAmount = 0;
+  const maxSearchRadiusKm =
+    input.lng !== undefined && input.lat !== undefined ? await getVendorSearchRadiusKm() : 0;
 
   let vendors = await VendorModel.find({
     status: 'ACTIVE',
     // Legacy shops without KYC stay live; new shops must complete onboarding
     onboardingComplete: { $ne: false },
   }).lean();
+  const acceptingIds = await vendorIdsAcceptingOrders(vendors.map((v) => v._id.toString()));
+  const countRows = vendors.length
+    ? await VendorProductModel.aggregate<{ _id: mongoose.Types.ObjectId; count: number }>([
+        { $match: { vendorId: { $in: vendors.map((v) => v._id) }, isActive: true } },
+        { $group: { _id: '$vendorId', count: { $sum: 1 } } },
+      ])
+    : [];
+  const productCountByVendor = new Map(countRows.map((row) => [row._id.toString(), row.count]));
+  const offerPercentByVendor = vendors.length
+    ? await maxOfferPercentByVendor(vendors.map((v) => v._id))
+    : new Map<string, number>();
   if (input.q?.trim()) {
     const term = input.q.trim();
     const re = new RegExp(term.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'), 'i');
@@ -197,13 +241,20 @@ export async function listCustomerVendors(input: {
     let distanceKm: number | undefined;
     if (input.lng !== undefined && input.lat !== undefined) {
       distanceKm = haversineKm(input.lng, input.lat, vlng, vlat);
-      if (!isWithinVendorDiscoveryRadius(distanceKm, v, maxRadiusKm)) continue;
+      if (!vendorSharesCustomerLaunchArea(vlng, vlat, matchedLaunchAreas)) continue;
+      const withinRadius = isWithinVendorDiscoveryRadius(
+        distanceKm,
+        {
+          location: { coordinates: [vlng, vlat] },
+          deliveryRadiusKm: v.deliveryRadiusKm ?? 15,
+          serviceAreaWideDelivery: false,
+        },
+        maxSearchRadiusKm,
+      );
+      if (!withinRadius) continue;
     }
 
-    const activeMappings = await VendorProductModel.countDocuments({
-      vendorId: v._id,
-      isActive: true,
-    });
+    const activeMappings = productCountByVendor.get(v._id.toString()) ?? 0;
     if (activeMappings === 0) continue;
 
     withMeta.push({
@@ -214,11 +265,12 @@ export async function listCustomerVendors(input: {
       ratingCount: v.ratingCount,
       distanceKm,
       deliveryEstimateMinutes: estimateDeliveryMinutes(distanceKm),
-      deliveryFee,
-      freeDeliveryThreshold,
+      deliveryFee: quoteCustomerFoodDeliveryCharge(foodCharges, distanceKm),
+      freeDeliveryThreshold: 0,
       minimumOrderAmount,
-      isOpen: vendorIsOpen(v.operatingHours),
+      isOpen: vendorIsOpen(v.operatingHours) && acceptingIds.has(v._id.toString()),
       productCount: activeMappings,
+      offerPercent: offerPercentByVendor.get(v._id.toString()),
       cuisineTags: Array.isArray(v.cuisineTags) ? v.cuisineTags : [],
       dietType: v.dietType === 'veg' || v.dietType === 'nonveg' || v.dietType === 'both' ? v.dietType : 'both',
       imageUrl: v.imageUrl || undefined,
@@ -256,22 +308,28 @@ export async function getCustomerVendor(
   if (lng !== undefined && lat !== undefined) {
     const zone = await isCustomerInAllowedServiceArea(lng, lat);
     if (!zone.allowed) throw new NotFoundError('Vendor not serviceable at your location');
-    const maxRadiusKm = await getVendorSearchRadiusKm();
-    const deliverable = isWithinVendorDeliveryRadius(lng, lat, vendor);
-    if (
-      !deliverable.ok ||
-      (!vendor.serviceAreaWideDelivery &&
-        !isWithinVendorDiscoveryRadius(deliverable.distanceKm, vendor, maxRadiusKm))
-    ) {
+    const [vlng, vlat] = vendor.location.coordinates;
+    if (!vendorSharesCustomerLaunchArea(vlng, vlat, zone.matchedAreas)) {
       throw new NotFoundError('Vendor not serviceable at your location');
     }
-    distanceKm = deliverable.distanceKm;
+    distanceKm = haversineKm(lng, lat, vlng, vlat);
+    const maxSearchRadiusKm = await getVendorSearchRadiusKm();
+    const withinRadius = isWithinVendorDiscoveryRadius(
+      distanceKm,
+      {
+        location: { coordinates: [vlng, vlat] },
+        deliveryRadiusKm: vendor.deliveryRadiusKm ?? 15,
+        serviceAreaWideDelivery: false,
+      },
+      maxSearchRadiusKm,
+    );
+    if (!withinRadius) throw new NotFoundError('Vendor not serviceable at your location');
   }
 
   const productCount = await VendorProductModel.countDocuments({ vendorId: vendor._id, isActive: true });
-  const deliveryFee = await getConfigValue<number>('delivery.defaultFee', 0);
-  const freeDeliveryThreshold = await getConfigValue<number>('delivery.freeThreshold', 499);
-  const minimumOrderAmount = await getConfigValue<number>('order.minValue', 100);
+  const offerPercent = (await maxOfferPercentByVendor([vendor._id])).get(vendor._id.toString());
+  const foodCharges = await getFoodCharges();
+  const minimumOrderAmount = 0;
 
   return {
     id: vendor._id.toString(),
@@ -282,11 +340,13 @@ export async function getCustomerVendor(
     status: vendor.status,
     distanceKm,
     deliveryEstimateMinutes: estimateDeliveryMinutes(distanceKm),
-    deliveryFee,
-    freeDeliveryThreshold,
+    deliveryFee: quoteCustomerFoodDeliveryCharge(foodCharges, distanceKm),
+    freeDeliveryThreshold: 0,
     minimumOrderAmount,
-    isOpen: vendorIsOpen(vendor.operatingHours),
+    isOpen: vendorIsOpen(vendor.operatingHours) &&
+      (await vendorIdsAcceptingOrders([vendor._id.toString()])).has(vendor._id.toString()),
     productCount,
+    offerPercent,
     cuisineTags: Array.isArray(vendor.cuisineTags) ? vendor.cuisineTags : [],
     dietType:
       vendor.dietType === 'veg' || vendor.dietType === 'nonveg' || vendor.dietType === 'both'
@@ -390,15 +450,6 @@ export async function listVendorStoreProducts(
     const inStock = availableQuantity > 0;
     if (filters.inStockOnly && !inStock) continue;
 
-    const priceFields = await resolveVendorProductDisplayPrice({
-      vendorId,
-      variantId: mapping.variantId.toString(),
-      mrp: mapping.mrp,
-      sellingPrice: mapping.sellingPrice,
-      lng: filters.lng,
-      lat: filters.lat,
-    });
-
     cards.push({
       vendorProductId: mapping._id.toString(),
       vendorId,
@@ -409,17 +460,47 @@ export async function listVendorStoreProducts(
       imageUrl: product.images?.find((i) => i.isPrimary)?.url ?? product.images?.[0]?.url,
       unitLabel: variant.name?.en,
       categoryId: product.categoryId.toString(),
-      mrp: priceFields.mrp,
-      sellingPrice: priceFields.sellingPrice,
-      finalUnitPrice: priceFields.finalUnitPrice,
-      displayPrice: priceFields.displayPrice,
-      actualPrice: priceFields.actualPrice,
-      discountPercent: priceFields.discountPercent,
+      mrp: mapping.mrp,
+      sellingPrice: mapping.sellingPrice,
+      finalUnitPrice: mapping.sellingPrice,
+      displayPrice: mapping.sellingPrice,
       availableQuantity,
       inStock,
       deliveryEstimateMinutes,
       dietType: resolveProductDietType({ dietType: product.dietType, name: product.name?.en }),
     });
+  }
+
+  const quotes = await quoteVendorOffersBatch({
+    variantIds: [...new Set(cards.map((card) => card.variantId))],
+    quantity: 1,
+    customerLng: filters.lng,
+    customerLat: filters.lat,
+    skipLocationFilter: true,
+    allowInsufficientStock: true,
+  });
+  const menuGst = vendorMenuGstPercent(vendor);
+  for (const card of cards) {
+    const match = quotes
+      .get(card.variantId)
+      ?.vendors.find((offer) => offer.vendorId === vendorId);
+    if (match) {
+      const price = productCardPriceFromQuote(match, card.mrp);
+      card.mrp = price.mrp;
+      card.sellingPrice = price.sellingPrice;
+      card.finalUnitPrice = price.finalUnitPrice;
+      card.displayPrice = price.displayPrice;
+      card.actualPrice = price.actualPrice;
+      card.discountPercent = price.discountPercent;
+      continue;
+    }
+    const priced = computeCustomerUnitPrice({
+      sellingPrice: card.sellingPrice,
+      taxRatePercent: menuGst,
+    });
+    card.finalUnitPrice = priced.finalUnitPrice;
+    card.displayPrice = priced.finalUnitPrice;
+    card.discountPercent = discountPercentFromMrp(card.mrp, priced.finalUnitPrice);
   }
 
   const sort = filters.sort ?? 'recommended';

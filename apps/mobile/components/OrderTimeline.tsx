@@ -8,6 +8,7 @@ const FLOW = [
   'CONFIRMED',
   'PROCESSING',
   'PACKED',
+  'READY_FOR_PICKUP',
   'OUT_FOR_DELIVERY',
   'DELIVERED',
 ] as const;
@@ -17,7 +18,8 @@ const LABELS: Record<string, string> = {
   PAID: 'Payment confirmed',
   CONFIRMED: 'Restaurant confirmed',
   PROCESSING: 'Preparing',
-  PACKED: 'Ready for pickup',
+  PACKED: 'Packed',
+  READY_FOR_PICKUP: 'Ready for pickup',
   OUT_FOR_DELIVERY: 'Out for delivery',
   DELIVERED: 'Delivered',
 };
@@ -29,12 +31,13 @@ type Props = {
 
 export function OrderTimeline({ current, timeline }: Props) {
   const currentIdx = Math.max(0, FLOW.indexOf(current as (typeof FLOW)[number]));
+  const finished = current === 'DELIVERED';
 
   return (
     <View>
       {FLOW.map((status, idx) => {
-        const done = idx <= currentIdx;
-        const isCurrent = idx === currentIdx;
+        const done = idx < currentIdx || (finished && idx === currentIdx);
+        const isCurrent = idx === currentIdx && !finished;
         const isLast = idx === FLOW.length - 1;
         const entry = timeline.find((t) => t.status === status);
         const lineDone = idx < currentIdx;

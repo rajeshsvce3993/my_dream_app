@@ -5,7 +5,7 @@ import { Ionicons } from '@expo/vector-icons';
 import { apiRequestWithMeta } from '../lib/api';
 import { serviceAreaCopy, type LocationAvailabilityMeta } from '../lib/locationMessages';
 import { isStoresTabBlocked, showStoresTabUnavailableAlert } from '../lib/storesTabAlerts';
-import { useAppLocation } from '../lib/usePublicConfig';
+import { useResolvedAppLocation } from '../lib/usePublicConfig';
 import { theme, spacing, radius, shadow } from '../lib/theme';
 import { ScreenHeader } from './ScreenHeader';
 import { screenHeaderStyles as h } from '../lib/screenHeaderStyles';
@@ -20,7 +20,7 @@ type Props = {
 };
 
 export function VendorStoresList({ vendorsQuery, blockStoreNavigation }: Props = {} as Props) {
-  const location = useAppLocation();
+  const { location, ready: locationReady } = useResolvedAppLocation();
 
   const internalQuery = useQuery({
     queryKey: ['vendors', location.lng, location.lat],
@@ -33,7 +33,7 @@ export function VendorStoresList({ vendorsQuery, blockStoreNavigation }: Props =
         location: meta?.location as LocationAvailabilityMeta | undefined,
       };
     },
-    enabled: !vendorsQuery,
+    enabled: !vendorsQuery && locationReady,
   });
 
   const vendors = vendorsQuery ?? internalQuery;
@@ -57,7 +57,7 @@ export function VendorStoresList({ vendorsQuery, blockStoreNavigation }: Props =
           <RefreshControl refreshing={vendors.isFetching} onRefresh={() => vendors.refetch()} />
         }
       >
-        {vendors.isLoading ? <ActivityIndicator color={theme.primary} /> : null}
+        {vendors.isLoading || !locationReady ? <ActivityIndicator color={theme.primary} /> : null}
         {(vendors.data?.items ?? []).map((store) => (
             <Pressable
               key={store.id}
@@ -96,12 +96,13 @@ export function VendorStoresList({ vendorsQuery, blockStoreNavigation }: Props =
                   {store.isOpen ? 'Open' : 'Closed'}
                 </Text>
                 <Text style={{ color: theme.muted, fontSize: 12 }}>
-                  {store.productCount} products · Free delivery ₹{store.freeDeliveryThreshold}+
+                  {store.productCount} products
+                  {(store.deliveryFee ?? 0) > 0 ? ` · Delivery ₹${store.deliveryFee}` : ''}
                 </Text>
               </View>
             </Pressable>
         ))}
-        {!vendors.isLoading && !(vendors.data?.items?.length ?? 0) ? (
+        {locationReady && !vendors.isLoading && !(vendors.data?.items?.length ?? 0) ? (
           vendors.data?.location?.reason === 'OUTSIDE_SERVICE_AREA' ? (
             <View style={{ marginTop: 24, paddingHorizontal: spacing.sm, gap: 8 }}>
               <Text style={{ textAlign: 'center', fontWeight: '800', fontSize: 17, color: theme.text }}>

@@ -8,4 +8,5 @@ export function pickRandom<T>(items: readonly T[]): T | null {
 
 export const OFFER_TTL_MS = Number(process.env.DELIVERY_OFFER_TTL_SECONDS ?? 30) * 1000;
 
-export const READY_FOR_DISPATCH = ['PACKED', 'READY_FOR_PICKUP'] as const;
+/** Riders are offered an order once the restaurant accepts it, and until it is picked up. */
+export const READY_FOR_DISPATCH = ['PROCESSING', 'PACKED', 'READY_FOR_PICKUP'] as const;

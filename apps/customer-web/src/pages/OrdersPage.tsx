@@ -4,7 +4,7 @@ import { ChevronRight, Package } from 'lucide-react';
 import { apiRequest } from '../api/client';
 import { useBrand } from '../hooks/useBrand';
 import { useLocale } from '../context/LocaleContext';
-import { formatMoney } from '../lib/format';
+import { formatMoney, orderSerial } from '../lib/format';
 import { orderStatusLabel } from '../lib/orderLabels';
 import { EmptyState } from '../design-system/EmptyState';
 import { HomeFeedSkeleton } from '../design-system/Skeleton';
@@ -15,7 +15,16 @@ type Order = {
   status: string;
   grandTotal: number;
   createdAt: string;
+  restaurantName?: string;
+  restaurantNames?: string[];
 };
+
+function restaurantLabel(order: Order) {
+  if (order.restaurantNames && order.restaurantNames.length > 0) {
+    return order.restaurantNames.join(', ');
+  }
+  return order.restaurantName || 'Restaurant';
+}
 
 export function OrdersPage() {
   const { currency } = useBrand();
@@ -24,6 +33,7 @@ export function OrdersPage() {
     queryKey: ['my-orders'],
     queryFn: () => apiRequest<Order[]>('/orders/my'),
     retry: false,
+    refetchInterval: 8000,
   });
 
   if (orders.isError) {
@@ -59,9 +69,10 @@ export function OrdersPage() {
         {list.map((order) => (
           <Link key={order._id} to={`/orders/${order._id}`} className="qc-order-card">
             <div>
-              <strong>#{order.orderNumber}</strong>
+              <strong>{restaurantLabel(order)}</strong>
               <p className="fm-muted-text">{orderStatusLabel(order.status, locale)}</p>
               <time className="qc-caption" dateTime={order.createdAt}>
+                {orderSerial(order.orderNumber)} ·{' '}
                 {new Date(order.createdAt).toLocaleDateString('en-IN', {
                   day: 'numeric',
                   month: 'short',

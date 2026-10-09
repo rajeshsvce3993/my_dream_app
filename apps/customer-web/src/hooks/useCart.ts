@@ -13,6 +13,7 @@ export type CartLine = {
   unitPrice: number;
   mrp: number;
   sellingPrice: number;
+  taxAmount?: number;
   lineTotal: number;
 };
 
@@ -28,6 +29,7 @@ export type CartCalc = {
   vendorCount: number;
   subtotal: number;
   shippingTotal: number;
+  platformFee?: number;
   taxTotal: number;
   discountTotal: number;
   grandTotal: number;

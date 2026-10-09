@@ -4,23 +4,40 @@ import { UserModel } from '../users/user.model.js';
 import { CustomerModel } from '../customers/customer.model.js';
 import { NotificationModel } from '../notifications/notification.model.js';
 import { OrderModel } from '../orders/order.model.js';
-import { getConfigValue } from '../configuration/configuration.service.js';
+import { VendorOrderModel } from '../orders/vendorOrder.model.js';
+import type { OrderStatus } from '../orders/orderStateMachine.js';
+import { quoteDeliveryEarning } from './deliveryEarnings.service.js';
+import { READY_FOR_DISPATCH } from './deliverySelection.js';
 import { DeliveryOfferModel } from './deliveryOffer.model.js';
 import { DeliveryPersonModel } from './deliveryPerson.model.js';
 import { getDeliveryPersonByUserId } from './deliveryAvailability.service.js';
 
 const UNASSIGNED = { $in: [null] as Array<null> };
 
-async function earningAmount(shippingTotal: number): Promise<number> {
-  try {
-    const configured = await getConfigValue<number>('delivery.earningPerOrder', shippingTotal);
-    return Number(configured) || shippingTotal;
-  } catch {
-    return shippingTotal;
+const VENDOR_TERMINAL = new Set(['CANCELLED', 'REFUNDED', 'FAILED', 'REFUND_REQUESTED']);
+
+async function mirrorVendorOrders(
+  parentOrderId: unknown,
+  status: OrderStatus,
+  note: string,
+): Promise<void> {
+  const rows = await VendorOrderModel.find({ parentOrderId });
+  const at = new Date();
+  for (const vo of rows) {
+    if (vo.status === status || VENDOR_TERMINAL.has(vo.status)) continue;
+    vo.status = status;
+    vo.timeline.push({ status, at, note });
+    await vo.save();
   }
 }
 
-async function notifyCustomerAssigned(orderId: string, orderNumber: string): Promise<void> {
+async function notifyCustomer(
+  orderId: string,
+  orderNumber: string,
+  event: string,
+  title: string,
+  body: string,
+): Promise<void> {
   const order = await OrderModel.findById(orderId).lean();
   if (!order) return;
   const customer = await CustomerModel.findById(order.customerId).lean();
@@ -28,11 +45,11 @@ async function notifyCustomerAssigned(orderId: string, orderNumber: string): Pro
   await NotificationModel.create({
     userId: customer.userId,
     channel: 'IN_APP',
-    event: 'DELIVERY_ASSIGNED',
-    title: { en: 'Delivery partner assigned' },
-    body: { en: `A delivery partner is assigned to order ${orderNumber}.` },
+    event,
+    title: { en: title },
+    body: { en: body },
     data: { orderId, orderNumber },
-  }).catch((err) => logger.error({ err }, 'Failed to persist delivery assignment notification'));
+  }).catch((err) => logger.error({ err }, 'Failed to persist delivery notification'));
 }
 
 /**
@@ -76,26 +93,25 @@ export async function acceptOffer(userId: string, offerId: string) {
   }
 
   const preview = await OrderModel.findById(offer.orderId).lean();
-  const earning = await earningAmount(preview?.shippingTotal ?? 0);
+  const earning = await quoteDeliveryEarning(preview ?? {});
 
   let claimed;
   try {
     claimed = await OrderModel.findOneAndUpdate(
     {
       _id: offer.orderId,
-      status: { $in: ['PACKED', 'READY_FOR_PICKUP'] },
+      status: { $in: [...READY_FOR_DISPATCH] },
       deliveryPersonUserId: UNASSIGNED,
     },
     {
       $set: {
         deliveryPersonUserId: userId,
         assignedAt: now,
-        status: 'READY_FOR_PICKUP',
         deliveryEarning: earning,
       },
       $push: {
         timeline: {
-          status: 'READY_FOR_PICKUP',
+          status: preview?.status ?? 'PROCESSING',
           at: now,
           by: person.userId,
           note: 'Delivery partner assigned',
@@ -138,9 +154,9 @@ export async function acceptOffer(userId: string, offerId: string) {
     const again = await DeliveryPersonModel.findById(person._id).lean();
     if (again?.activeOrderId?.toString() !== claimed._id.toString()) {
       await OrderModel.updateOne(
-        { _id: claimed._id, deliveryPersonUserId: userId, status: 'READY_FOR_PICKUP' },
+        { _id: claimed._id, deliveryPersonUserId: userId },
         {
-          $set: { deliveryPersonUserId: null, status: 'PACKED' },
+          $set: { deliveryPersonUserId: null },
           $unset: { assignedAt: 1 },
         },
       );
@@ -154,7 +170,13 @@ export async function acceptOffer(userId: string, offerId: string) {
     { $set: { status: 'CANCELLED' } },
   );
 
-  await notifyCustomerAssigned(claimed._id.toString(), claimed.orderNumber);
+  await notifyCustomer(
+    claimed._id.toString(),
+    claimed.orderNumber,
+    'DELIVERY_ASSIGNED',
+    'Delivery partner assigned',
+    `A delivery partner is assigned to order ${claimed.orderNumber}.`,
+  );
   return { order: claimed, alreadyAssigned: false };
 }
 
@@ -188,10 +210,24 @@ export async function markPickedUp(userId: string) {
     },
     { new: true },
   );
-  if (updated) return updated;
-  const current = await OrderModel.findOne({ _id: person.activeOrderId, deliveryPersonUserId: userId });
-  if (current?.status === 'OUT_FOR_DELIVERY' || current?.status === 'DELIVERED') return current;
-  throw new BusinessRuleError('Pickup is not available for this order');
+  const current =
+    updated ??
+    (await OrderModel.findOne({ _id: person.activeOrderId, deliveryPersonUserId: userId }));
+  if (!current || (current.status !== 'OUT_FOR_DELIVERY' && current.status !== 'DELIVERED')) {
+    throw new BusinessRuleError('Pickup is not available for this order');
+  }
+  if (current.status === 'DELIVERED') return current;
+  await mirrorVendorOrders(current._id, 'OUT_FOR_DELIVERY', 'Picked up from restaurant');
+  if (updated) {
+    await notifyCustomer(
+      current._id.toString(),
+      current.orderNumber,
+      'OUT_FOR_DELIVERY',
+      'Order picked up',
+      `Order ${current.orderNumber} is on the way.`,
+    );
+  }
+  return current;
 }
 
 export async function markDelivered(userId: string) {
@@ -217,10 +253,20 @@ export async function markDelivered(userId: string) {
     (await OrderModel.findOne({ _id: person.activeOrderId, deliveryPersonUserId: userId, status: 'DELIVERED' }));
   if (!order) throw new BusinessRuleError('Delivery confirmation is not available for this order');
 
+  await mirrorVendorOrders(order._id, 'DELIVERED', 'Delivered to customer');
   await DeliveryPersonModel.updateOne(
     { _id: person._id, activeOrderId: order._id },
     { $set: { activeOrderId: null, lastSeenAt: now } },
   );
+  if (updated) {
+    await notifyCustomer(
+      order._id.toString(),
+      order.orderNumber,
+      'DELIVERED',
+      'Order delivered',
+      `Order ${order.orderNumber} has been delivered.`,
+    );
+  }
   return order;
 }
 

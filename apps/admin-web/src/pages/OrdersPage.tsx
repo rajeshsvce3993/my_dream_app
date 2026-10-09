@@ -11,7 +11,16 @@ type Order = {
   grandTotal: number;
   currency: string;
   createdAt: string;
+  restaurantName?: string;
+  restaurantNames?: string[];
 };
+
+function restaurantLabel(order: Order) {
+  if (order.restaurantNames && order.restaurantNames.length > 0) {
+    return order.restaurantNames.join(', ');
+  }
+  return order.restaurantName || '—';
+}
 
 const STATUS_FILTERS = [
   '',
@@ -88,6 +97,7 @@ export function OrdersPage() {
               <thead>
                 <tr>
                   <th>Order #</th>
+                  <th>Restaurant</th>
                   <th>Status</th>
                   <th>Payment</th>
                   <th>Total</th>
@@ -98,7 +108,7 @@ export function OrdersPage() {
               <tbody>
                 {orders.length === 0 ? (
                   <tr>
-                    <td colSpan={6} style={{ color: 'var(--fm-muted)' }}>
+                    <td colSpan={7} style={{ color: 'var(--fm-muted)' }}>
                       No orders found.
                     </td>
                   </tr>
@@ -108,6 +118,7 @@ export function OrdersPage() {
                       <td>
                         <strong>{o.orderNumber}</strong>
                       </td>
+                      <td>{restaurantLabel(o)}</td>
                       <td>{statusLabel(o.status)}</td>
                       <td>{statusLabel(o.paymentStatus)}</td>
                       <td>{formatMoney(o)}</td>

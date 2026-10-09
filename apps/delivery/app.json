@@ -12,12 +12,25 @@
       "resizeMode": "contain"
     },
     "android": {
-      "backgroundColor": "#0F2430"
+      "backgroundColor": "#0F2430",
+      "softwareKeyboardLayoutMode": "resize",
+      "permissions": ["ACCESS_COARSE_LOCATION", "ACCESS_FINE_LOCATION"]
     },
     "ios": {
-      "backgroundColor": "#0F2430"
+      "backgroundColor": "#0F2430",
+      "infoPlist": {
+        "NSLocationWhenInUseUsageDescription": "Dream Delivery uses your location when you go online so orders in your service area can be offered to you."
+      }
     },
-    "plugins": ["expo-router"],
+    "plugins": [
+      "expo-router",
+      [
+        "expo-location",
+        {
+          "locationWhenInUsePermission": "Dream Delivery uses your location when you go online so orders in your service area can be offered to you."
+        }
+      ]
+    ],
     "experiments": {
       "typedRoutes": true
     }

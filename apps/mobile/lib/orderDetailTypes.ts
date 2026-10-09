@@ -38,6 +38,7 @@ export type CustomerOrderDetail = {
     subtotal: number;
     taxTotal: number;
     shippingTotal: number;
+    platformFee?: number;
     discountTotal: number;
     currency: string;
     createdAt: string;
@@ -52,8 +53,32 @@ export type CustomerOrderDetail = {
   };
   vendorOrders: VendorOrderSlice[];
   items: OrderLineItem[];
-  tracking?: { partner: string; trackingId: string };
+  tracking?: {
+    partner: string;
+    trackingId: string;
+    assignedPartner?: { name?: string; phone?: string } | null;
+  };
 };
+
+/** Partner name is shown only after a rider accepts. Until then, explain when one will be assigned. */
+export function deliveryPartnerLine(status: string, partnerName?: string | null) {
+  const name = partnerName?.trim() || null;
+  if (name) {
+    if (status === 'DELIVERED') return { name, message: 'Delivered your order' };
+    if (status === 'OUT_FOR_DELIVERY') return { name, message: 'Bringing your order' };
+    return { name, message: 'Accepted your order' };
+  }
+  if (status === 'CANCELLED') {
+    return { name: null, message: 'No delivery partner was assigned.' };
+  }
+  if (status === 'READY_FOR_PICKUP' || status === 'OUT_FOR_DELIVERY') {
+    return { name: null, message: 'Looking for a delivery partner nearby.' };
+  }
+  return {
+    name: null,
+    message: "We'll assign a delivery partner once your food is prepared and a partner is available.",
+  };
+}
 
 export function groupOrderItemsByVendor(detail: CustomerOrderDetail) {
   const itemLookup = new Map(
@@ -73,6 +98,7 @@ export function groupOrderItemsByVendor(detail: CustomerOrderDetail) {
         ...line,
         productName: meta?.productName,
         imageUrl: meta?.imageUrl,
+        taxAmount: meta?.taxAmount ?? 0,
       };
     }),
   }));

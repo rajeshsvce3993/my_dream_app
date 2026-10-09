@@ -1,5 +1,5 @@
 import { NotFoundError } from '../../common/errors/AppError.js';
-import { getConfigValue } from '../configuration/configuration.service.js';
+import { foodProductIdSet, getFoodCharges, quoteCustomerFoodDeliveryCharge, type FoodCharges } from '../pricing/foodCharges.service.js';
 import { isCustomerInAllowedServiceArea } from '../delivery/deliveryServiceAreas.service.js';
 import { ProductModel } from '../products/product.model.js';
 import { ProductVariantModel } from '../products/productVariant.model.js';
@@ -7,6 +7,7 @@ import { discountPercentFromMrp } from './productCardPricing.js';
 import { getVariantListPrice } from '../products/variantListPrice.service.js';
 import { quoteVendorOffers, type VendorOfferQuote } from '../pricing/pricing.service.js';
 import { VendorModel } from '../vendors/vendor.model.js';
+import { vendorIdsAcceptingOrders } from '../vendors/vendorStaffAccess.service.js';
 import { filterCheaperVendorOffers, resolveVendorPickDecision } from './addToCartVendorPick.util.js';
 
 export type AddToCartFlowStatus =
@@ -63,11 +64,12 @@ async function enrichVendorOffers(
   quotes: VendorOfferQuote[],
   vendorProductIds: Map<string, string>,
   actualPrice?: number,
+  foodCharges: FoodCharges | null = null,
 ): Promise<AddToCartFlowVendorOffer[]> {
-  const deliveryFee = await getConfigValue<number>('delivery.defaultFee', 0);
   const vendorIds = quotes.map((q) => q.vendorId);
   const vendors = await VendorModel.find({ _id: { $in: vendorIds } }).lean();
   const vendorMap = new Map(vendors.map((v) => [v._id.toString(), v]));
+  const acceptingIds = await vendorIdsAcceptingOrders(vendorIds);
 
   return quotes.map((q) => {
     const vendor = vendorMap.get(q.vendorId);
@@ -76,8 +78,8 @@ async function enrichVendorOffers(
     return {
       ...q,
       vendorProductId: vendorProductIds.get(`${q.vendorId}:${q.variantId}`) ?? '',
-      deliveryFee,
-      isOpen: vendorIsOpen(vendor?.operatingHours),
+      deliveryFee: foodCharges ? quoteCustomerFoodDeliveryCharge(foodCharges, q.distanceKm) : 0,
+      isOpen: vendorIsOpen(vendor?.operatingHours) && acceptingIds.has(q.vendorId),
       discountPercent,
     };
   });
@@ -149,10 +151,13 @@ export async function evaluateAddToCartFlow(input: {
   }
 
   const actualPrice = await getVariantListPrice(variant._id.toString());
+  const foodProducts = await foodProductIdSet([product._id.toString()]);
+  const foodCharges = foodProducts.has(product._id.toString()) ? await getFoodCharges() : null;
   const vendors = await enrichVendorOffers(
     comparison.vendors,
     comparison.vendorProductIdMap,
     actualPrice,
+    foodCharges,
   );
 
   if (!vendors.length) {

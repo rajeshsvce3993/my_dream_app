@@ -108,10 +108,11 @@ export function HomeTopPicksPage() {
     <div>
       <h1>Top picks</h1>
       <p style={{ maxWidth: 720, marginBottom: 16 }}>
-        Dish shortcuts on the customer home screen (Biryani, Fried rice, Chicken 65, …). Customers tap a
-        pick to search restaurants / menus. Config key: <code>{CONFIG_KEY}</code>.
+        Dish shortcuts on the customer home screen. A pick saves only when an active restaurant inside a
+        configured service area sells that dish (search words and diet). Customers tap a pick to open
+        matching menus. Config key: <code>{CONFIG_KEY}</code>.
       </p>
-      {message ? <p>{message}</p> : null}
+      {message ? <p className={message.startsWith('Saved') ? undefined : 'error'}>{message}</p> : null}
 
       <div style={{ marginBottom: 20 }}>
         <button type="button" disabled={save.isPending} onClick={() => setDraft(emptyDraft())}>

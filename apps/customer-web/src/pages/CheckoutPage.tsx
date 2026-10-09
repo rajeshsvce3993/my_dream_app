@@ -1,22 +1,13 @@
-import { useQuery } from '@tanstack/react-query';
 import { useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
-import { MapPin, Truck, Wallet, CreditCard, Smartphone } from 'lucide-react';
+import { MapPin, Wallet, CreditCard, Smartphone } from 'lucide-react';
 import { apiRequest } from '../api/client';
 import { OrderSummary } from '../components/OrderSummary';
 import { useCart } from '../hooks/useCart';
 import { useLocationContext } from '../context/LocationContext';
 import { ErrorState } from '../design-system/ErrorState';
 import { HomeFeedSkeleton } from '../design-system/Skeleton';
-import { useLocale } from '../context/LocaleContext';
-
-const steps = ['Address', 'Delivery', 'Payment', 'Review'];
-
-type DeliveryOption = {
-  id: string;
-  label: { en: string; ta?: string };
-  fee: number;
-};
+const steps = ['Address', 'Payment', 'Review'];
 
 type PaymentMethod = 'COD' | 'RAZORPAY' | 'STRIPE';
 
@@ -48,22 +39,12 @@ const PAYMENT_OPTIONS: Array<{
 
 export function CheckoutPage() {
   const navigate = useNavigate();
-  const { tName } = useLocale();
   const { location } = useLocationContext();
   const [step, setStep] = useState(0);
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
-  const [deliveryId, setDeliveryId] = useState('standard');
   const [paymentMethod, setPaymentMethod] = useState<PaymentMethod>('COD');
   const cart = useCart();
-
-  const config = useQuery({
-    queryKey: ['checkout-config'],
-    queryFn: () => apiRequest<Record<string, unknown>>('/configuration/public'),
-  });
-
-  const deliveryOptions =
-    (config.data?.['checkout.deliveryOptions'] as DeliveryOption[] | undefined) ?? [];
 
   async function placeOrder(e: React.FormEvent<HTMLFormElement>) {
     e.preventDefault();
@@ -140,34 +121,6 @@ export function CheckoutPage() {
           {step === 1 ? (
             <>
               <h2>
-                <Truck size={20} style={{ verticalAlign: 'middle' }} /> Delivery method
-              </h2>
-              {(deliveryOptions.length
-                ? deliveryOptions
-                : [{ id: 'standard', label: { en: 'Standard delivery' }, fee: 0 }]
-              ).map((opt) => (
-                <label
-                  key={opt.id}
-                  className={`fm-radio-card ${deliveryId === opt.id ? 'selected' : ''}`}
-                >
-                  <input
-                    type="radio"
-                    name="delivery"
-                    checked={deliveryId === opt.id}
-                    onChange={() => setDeliveryId(opt.id)}
-                  />
-                  <div>
-                    <strong>{tName(opt.label)}</strong>
-                    <div className="fm-muted-text">{opt.fee === 0 ? 'Free' : `₹${opt.fee}`}</div>
-                  </div>
-                </label>
-              ))}
-            </>
-          ) : null}
-
-          {step === 2 ? (
-            <>
-              <h2>
                 <Wallet size={20} style={{ verticalAlign: 'middle' }} /> Payment
               </h2>
               {PAYMENT_OPTIONS.map((opt) => {
@@ -194,7 +147,7 @@ export function CheckoutPage() {
             </>
           ) : null}
 
-          {step === 3 ? (
+          {step === 2 ? (
             <>
               <h2>Review & place order</h2>
               <p className="fm-muted-text">

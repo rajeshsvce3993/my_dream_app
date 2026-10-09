@@ -7,6 +7,7 @@ export interface IVendorOrderItem {
   quantity: number;
   unitPrice: number;
   lineTotal: number;
+  taxAmount?: number;
 }
 
 export interface IVendorOrder {
@@ -20,6 +21,7 @@ export interface IVendorOrder {
   commissionRate: number;
   commissionAmount: number;
   vendorPayoutAmount: number;
+  vendorPayoutPaidAt?: Date;
   trackingNumber?: string;
   timeline: { status: OrderStatus; at: Date; note?: string }[];
   createdAt: Date;
@@ -41,6 +43,7 @@ const vendorOrderSchema = new Schema<IVendorOrderDocument>(
         quantity: { type: Number, required: true, min: 1 },
         unitPrice: { type: Number, required: true, min: 0 },
         lineTotal: { type: Number, required: true, min: 0 },
+        taxAmount: { type: Number, default: 0, min: 0 },
       },
     ],
     subtotal: { type: Number, required: true, min: 0 },
@@ -48,6 +51,7 @@ const vendorOrderSchema = new Schema<IVendorOrderDocument>(
     commissionRate: { type: Number, default: 0, min: 0 },
     commissionAmount: { type: Number, default: 0, min: 0 },
     vendorPayoutAmount: { type: Number, default: 0, min: 0 },
+    vendorPayoutPaidAt: { type: Date },
     trackingNumber: { type: String },
     timeline: [
       {

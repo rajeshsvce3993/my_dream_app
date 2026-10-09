@@ -15,8 +15,11 @@ const NAV_GROUPS = [
     label: 'Ops',
     links: [
       ['Dashboard', '/dashboard'],
+      ['Payments', '/payments'],
       ['Orders', '/orders'],
-      ['Delivery zones', '/delivery'],
+      ['Launch areas', '/delivery'],
+      ['Delivery charges', '/delivery-charges'],
+      ['Partner earnings', '/partner-earnings'],
       ['Delivery partners', '/delivery-partners'],
     ],
   },

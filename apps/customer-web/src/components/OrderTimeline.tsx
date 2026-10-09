@@ -6,6 +6,7 @@ export const ORDER_FLOW = [
   'CONFIRMED',
   'PROCESSING',
   'PACKED',
+  'READY_FOR_PICKUP',
   'OUT_FOR_DELIVERY',
   'DELIVERED',
 ] as const;
@@ -17,6 +18,7 @@ export const ORDER_STATUS_LABEL: Record<string, { en: string; ta?: string }> = {
   CONFIRMED: { en: 'Vendor confirmed', ta: 'விற்பனையாளர் உறுதி' },
   PROCESSING: { en: 'Preparing', ta: 'தயாராகிறது' },
   PACKED: { en: 'Packed', ta: 'பேக் செய்யப்பட்டது' },
+  READY_FOR_PICKUP: { en: 'Ready for pickup', ta: 'பிக்கப்புக்கு தயார்' },
   DELIVERED: { en: 'Delivered', ta: 'வழங்கப்பட்டது' },
 };
 
@@ -28,13 +30,14 @@ type Props = {
 
 export function OrderTimeline({ current, timeline, labelFor }: Props) {
   const currentIdx = ORDER_FLOW.indexOf(current as (typeof ORDER_FLOW)[number]);
+  const finished = current === 'DELIVERED';
 
   return (
     <ol className="qc-track-timeline">
       {ORDER_FLOW.map((status, idx) => {
         const entry = timeline.find((t) => t.status === status);
-        const done = idx <= currentIdx || Boolean(entry);
-        const isCurrent = status === current;
+        const done = idx < currentIdx || (finished && idx === currentIdx) || Boolean(entry);
+        const isCurrent = status === current && !finished;
         return (
           <li key={status} className={isCurrent ? 'is-current' : done ? 'is-done' : 'is-pending'}>
             <span className="qc-track-dot" aria-hidden>

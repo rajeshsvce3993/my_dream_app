@@ -1,7 +1,8 @@
 import { Redirect, Tabs } from 'expo-router';
-import { ActivityIndicator, StyleSheet, View } from 'react-native';
+import { StyleSheet } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import { DeliverySplash } from '../../components/DeliverySplash';
 import { useDeliverySession } from '../../lib/useDeliverySession';
 import { theme } from '../../lib/theme';
 
@@ -11,11 +12,7 @@ export default function TabsLayout() {
   const bottomInset = Math.max(insets.bottom, 8);
 
   if (!session.ready) {
-    return (
-      <View style={{ flex: 1, justifyContent: 'center', backgroundColor: theme.bg }}>
-        <ActivityIndicator color={theme.primary} />
-      </View>
-    );
+    return <DeliverySplash />;
   }
 
   if (!session.signedIn) {

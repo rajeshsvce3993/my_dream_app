@@ -9,31 +9,13 @@ import { getConfigValue } from '../configuration/configuration.service.js';
 import { OrderModel } from './order.model.js';
 import { VendorOrderModel } from './vendorOrder.model.js';
 import {
+  allowedNextStatuses,
   assertValidTransition,
   ORDER_STATUSES,
   type OrderStatus,
 } from './orderStateMachine.js';
 
-export { ORDER_STATUSES };
-
-const transitions: Record<OrderStatus, OrderStatus[]> = {
-  PENDING_PAYMENT: ['PAID', 'FAILED', 'CANCELLED'],
-  PAID: ['CONFIRMED', 'REFUND_REQUESTED', 'CANCELLED'],
-  CONFIRMED: ['PROCESSING', 'CANCELLED'],
-  PROCESSING: ['PACKED', 'CANCELLED'],
-  PACKED: ['READY_FOR_PICKUP', 'OUT_FOR_DELIVERY'],
-  READY_FOR_PICKUP: ['DELIVERED', 'CANCELLED'],
-  OUT_FOR_DELIVERY: ['DELIVERED', 'CANCELLED'],
-  DELIVERED: ['REFUND_REQUESTED'],
-  CANCELLED: [],
-  REFUND_REQUESTED: ['REFUNDED', 'DELIVERED'],
-  REFUNDED: [],
-  FAILED: [],
-};
-
-export function allowedNextStatuses(current: OrderStatus): OrderStatus[] {
-  return transitions[current] ?? [];
-}
+export { ORDER_STATUSES, allowedNextStatuses };
 
 export async function getAdminOrderDetail(orderId: string): Promise<Record<string, unknown>> {
   const order = await OrderModel.findById(orderId).lean();
@@ -141,7 +123,7 @@ export async function updateParentOrderStatus(
     }
   }
 
-  if (toStatus === 'PACKED' || toStatus === 'READY_FOR_PICKUP') {
+  if (toStatus === 'PROCESSING' || toStatus === 'READY_FOR_PICKUP') {
     const { dispatchOrder } = await import('../delivery/deliveryDispatch.service.js');
     void dispatchOrder(order._id.toString()).catch(() => undefined);
   }
@@ -167,5 +149,7 @@ export async function updateVendorOrderStatus(
     vo.trackingNumber = options.trackingNumber.trim() || undefined;
   }
   await vo.save();
+  const { syncParentOrderForVendorAction } = await import('../vendors/vendorOrderPortal.service.js');
+  await syncParentOrderForVendorAction(vo.parentOrderId, toStatus, undefined, options?.note);
   return vo;
 }

@@ -15,6 +15,9 @@ export interface IVendor {
   rating: number;
   ratingCount: number;
   commissionRate: number;
+  /** When true, GST percent is added on this shop’s food item prices. */
+  gstEnabled: boolean;
+  gstPercent: number;
   address?: {
     line1?: string;
     line2?: string;
@@ -90,6 +93,8 @@ const vendorSchema = new Schema<IVendorDocument>(
     rating: { type: Number, default: 0, min: 0, max: 5 },
     ratingCount: { type: Number, default: 0 },
     commissionRate: { type: Number, default: 0, min: 0, max: 100 },
+    gstEnabled: { type: Boolean, default: false },
+    gstPercent: { type: Number, default: 5, min: 0, max: 100 },
     address: {
       line1: String,
       line2: String,

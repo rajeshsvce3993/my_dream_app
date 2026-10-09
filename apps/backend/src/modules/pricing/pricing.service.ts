@@ -6,9 +6,14 @@ import { OfferModel } from '../offers/offer.model.js';
 import { ProductVariantModel } from '../products/productVariant.model.js';
 import { VendorProductModel, type IVendorProduct } from '../products/vendorProduct.model.js';
 import { VendorModel, type IVendor } from '../vendors/vendor.model.js';
-import { assertCustomerInServiceArea } from '../delivery/deliveryServiceAreas.service.js';
-import { isWithinVendorDeliveryRadius } from '../vendors/vendorDelivery.service.js';
+import {
+  assertCustomerInServiceArea,
+  isCustomerInAllowedServiceArea,
+  vendorSharesCustomerLaunchArea,
+} from '../delivery/deliveryServiceAreas.service.js';
+import { haversineKm } from '../vendors/vendorDelivery.service.js';
 import { computeCustomerUnitPrice } from './customerUnitPrice.js';
+import { foodProductIdSet, vendorMenuGstPercent } from './foodCharges.service.js';
 
 export interface VendorOfferQuote {
   vendorId: string;
@@ -101,10 +106,13 @@ function buildQuotesForVariant(input: {
   inventoryMap: Map<string, LeanInventory>;
   offers: ActiveOffer[];
   taxRate: number;
+  /** Food lines use each restaurant’s own GST. Other lines use taxRate. */
+  isFood?: boolean;
   weights: Awaited<ReturnType<typeof getVendorRankingWeights>>;
   quantity: number;
   customerLng?: number;
   customerLat?: number;
+  matchedLaunchAreas?: Awaited<ReturnType<typeof isCustomerInAllowedServiceArea>>['matchedAreas'] | null;
   skipLocationFilter?: boolean;
   allowInsufficientStock?: boolean;
 }): VendorOfferComparison {
@@ -121,6 +129,11 @@ function buildQuotesForVariant(input: {
     const vendor = input.vendorMap.get(mapping.vendorId.toString());
     if (!vendor) continue;
 
+    if (input.matchedLaunchAreas) {
+      const [vlng, vlat] = vendor.location.coordinates;
+      if (!vendorSharesCustomerLaunchArea(vlng, vlat, input.matchedLaunchAreas)) continue;
+    }
+
     const inv = input.inventoryMap.get(`${mapping.vendorId}:${mapping.variantId}`);
     const available = inv?.available ?? 0;
     if (!input.allowInsufficientStock && available < input.quantity) continue;
@@ -131,9 +144,8 @@ function buildQuotesForVariant(input: {
       input.customerLng !== undefined &&
       input.customerLat !== undefined
     ) {
-      const check = isWithinVendorDeliveryRadius(input.customerLng, input.customerLat, vendor);
-      distanceKm = check.distanceKm;
-      if (!check.ok) continue;
+      const [vlng, vlat] = vendor.location.coordinates;
+      distanceKm = haversineKm(input.customerLng, input.customerLat, vlng, vlat);
     }
 
     const baseDiscount = Math.max(0, mapping.mrp - mapping.sellingPrice);
@@ -147,7 +159,7 @@ function buildQuotesForVariant(input: {
     const priced = computeCustomerUnitPrice({
       sellingPrice: mapping.sellingPrice,
       offerDiscount,
-      taxRatePercent: input.taxRate,
+      taxRatePercent: input.isFood ? vendorMenuGstPercent(vendor) : input.taxRate,
     });
     const { taxAmount, finalUnitPrice } = priced;
 
@@ -199,13 +211,15 @@ export async function quoteVendorOffersBatch(input: {
   if (!uniqueIds.length) return out;
 
   const quantity = input.quantity ?? 1;
-  const [variants, mappings, offers, taxRate, weights] = await Promise.all([
+  const [variants, mappings, offers, defaultTaxRate, weights] = await Promise.all([
     ProductVariantModel.find({ _id: { $in: uniqueIds }, status: 'ACTIVE' }).lean(),
     VendorProductModel.find({ variantId: { $in: uniqueIds }, isActive: true }).lean(),
     loadActiveOffers(),
     getConfigValue<number>('tax.defaultRate', 0),
     getVendorRankingWeights(),
   ]);
+  const foodProducts = await foodProductIdSet(variants.map((variant) => variant.productId.toString()));
+  const productIdByVariant = new Map(variants.map((variant) => [variant._id.toString(), variant.productId.toString()]));
 
   const activeVariantIds = new Set(variants.map((v) => v._id.toString()));
   for (const id of uniqueIds) {
@@ -237,6 +251,23 @@ export async function quoteVendorOffersBatch(input: {
     mappingsByVariant.set(vid, list);
   }
 
+  let matchedLaunchAreas: Awaited<ReturnType<typeof isCustomerInAllowedServiceArea>>['matchedAreas'] | null =
+    null;
+  if (
+    !input.skipLocationFilter &&
+    input.customerLng !== undefined &&
+    input.customerLat !== undefined
+  ) {
+    const zone = await isCustomerInAllowedServiceArea(input.customerLng, input.customerLat);
+    if (!zone.allowed) {
+      for (const id of uniqueIds) {
+        if (!out.has(id)) out.set(id, finalizeVendorQuotes([]));
+      }
+      return out;
+    }
+    matchedLaunchAreas = zone.unrestricted ? null : zone.matchedAreas;
+  }
+
   for (const variantId of uniqueIds) {
     if (out.has(variantId)) continue;
     const variantMappings = mappingsByVariant.get(variantId) ?? [];
@@ -248,11 +279,13 @@ export async function quoteVendorOffersBatch(input: {
         vendorMap,
         inventoryMap,
         offers,
-        taxRate,
+        taxRate: defaultTaxRate,
+        isFood: foodProducts.has(productIdByVariant.get(variantId) ?? ''),
         weights,
         quantity,
         customerLng: input.customerLng,
         customerLat: input.customerLat,
+        matchedLaunchAreas,
         skipLocationFilter: input.skipLocationFilter,
         allowInsufficientStock: input.allowInsufficientStock,
       }),
@@ -304,18 +337,42 @@ export async function quoteVendorOffers(input: {
   }).lean();
   const inventoryMap = new Map(inventories.map((i) => [`${i.vendorId}:${i.variantId}`, i]));
 
-  const [taxRate, weights, offers] = await Promise.all([
+  const [defaultTaxRate, weights, offers] = await Promise.all([
     getConfigValue<number>('tax.defaultRate', 0),
     getVendorRankingWeights(),
     loadActiveOffers(),
   ]);
+  const foodProducts = await foodProductIdSet([variant.productId.toString()]);
+  const isFood = foodProducts.has(variant.productId.toString());
 
   const quotes: VendorOfferQuote[] = [];
   const vendorProductIdMap = new Map<string, string>();
 
+  let matchedLaunchAreas: Awaited<
+    ReturnType<typeof isCustomerInAllowedServiceArea>
+  >['matchedAreas'] | null = null;
+  if (input.customerLng !== undefined && input.customerLat !== undefined) {
+    const zone = await isCustomerInAllowedServiceArea(input.customerLng, input.customerLat);
+    if (!zone.allowed && !input.skipLocationFilter) {
+      return {
+        vendors: [],
+        cheapestVendorId: null,
+        nearestVendorId: null,
+        bestOverallVendorId: null,
+        vendorProductIdMap,
+      };
+    }
+    matchedLaunchAreas = zone.unrestricted || !zone.allowed ? null : zone.matchedAreas;
+  }
+
   for (const mapping of mappings) {
     const vendor = vendorMap.get(mapping.vendorId.toString());
     if (!vendor) continue;
+
+    if (matchedLaunchAreas) {
+      const [vlng, vlat] = vendor.location.coordinates;
+      if (!vendorSharesCustomerLaunchArea(vlng, vlat, matchedLaunchAreas)) continue;
+    }
 
     const inv = inventoryMap.get(`${mapping.vendorId}:${mapping.variantId}`);
     const available = inv?.available ?? 0;
@@ -327,9 +384,8 @@ export async function quoteVendorOffers(input: {
       input.customerLng !== undefined &&
       input.customerLat !== undefined
     ) {
-      const check = isWithinVendorDeliveryRadius(input.customerLng, input.customerLat, vendor);
-      distanceKm = check.distanceKm;
-      if (!check.ok) continue;
+      const [vlng, vlat] = vendor.location.coordinates;
+      distanceKm = haversineKm(input.customerLng, input.customerLat, vlng, vlat);
     }
 
     if (input.includeVendorProductIds) {
@@ -350,7 +406,7 @@ export async function quoteVendorOffers(input: {
     const priced = computeCustomerUnitPrice({
       sellingPrice: mapping.sellingPrice,
       offerDiscount,
-      taxRatePercent: taxRate,
+      taxRatePercent: isFood ? vendorMenuGstPercent(vendor) : defaultTaxRate,
     });
     const { taxAmount, finalUnitPrice } = priced;
 

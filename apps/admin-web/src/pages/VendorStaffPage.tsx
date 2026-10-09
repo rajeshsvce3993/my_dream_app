@@ -69,13 +69,16 @@ export function VendorStaffPage() {
     onSuccess: () => qc.invalidateQueries({ queryKey: ['vendor-staff'] }),
   });
 
+  const shopsWithLogin = new Set((list.data ?? []).map((row) => String(row.vendorId)));
+  const availableShops = (vendors.data ?? []).filter((v) => !shopsWithLogin.has(v._id));
+
   return (
     <div>
       <div className="admin-page-head">
         <div>
           <h1>Vendor app accounts</h1>
           <p className="page-lead">
-            Staff logins for the vendor app. Create per shop, approve, then they can accept and prepare orders.
+            One vendor app login per shop. That account sees the menu, updates prices, and accepts orders.
           </p>
         </div>
         <button type="button" className="secondary" onClick={() => list.refetch()}>
@@ -89,8 +92,10 @@ export function VendorStaffPage() {
           <label>
             Shop
             <select value={vendorId} onChange={(e) => setVendorId(e.target.value)}>
-              <option value="">Select vendor shop</option>
-              {(vendors.data ?? []).map((v) => (
+              <option value="">
+                {availableShops.length ? 'Select vendor shop' : 'Every shop already has a login'}
+              </option>
+              {availableShops.map((v) => (
                 <option key={v._id} value={v._id}>
                   {v.name} ({v.code})
                 </option>

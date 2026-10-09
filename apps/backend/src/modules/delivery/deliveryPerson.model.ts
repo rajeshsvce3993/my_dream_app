@@ -18,6 +18,13 @@ export interface IDeliveryPerson {
   activeOrderId?: Types.ObjectId | null;
   vehicleType?: string;
   rejectionReason?: string;
+  /** Launch areas that currently contain this rider’s GPS. Updated when they go online. */
+  serviceAreaIds: string[];
+  currentLocation?: {
+    type: 'Point';
+    coordinates: [number, number];
+  };
+  locationUpdatedAt?: Date;
   documents?: DeliveryOnboardingDocuments;
   createdAt: Date;
   updatedAt: Date;
@@ -54,6 +61,12 @@ const deliveryPersonSchema = new Schema<IDeliveryPersonDocument>(
     activeOrderId: { type: Schema.Types.ObjectId, ref: 'Order', default: null, index: true },
     vehicleType: { type: String },
     rejectionReason: { type: String },
+    serviceAreaIds: { type: [String], default: [] },
+    currentLocation: {
+      type: { type: String, enum: ['Point'] },
+      coordinates: { type: [Number] },
+    },
+    locationUpdatedAt: { type: Date },
     documents: { type: deliveryDocumentsSchema },
   },
   { timestamps: true },

@@ -1,8 +1,9 @@
-import { Router } from 'express';
+import { Router, type RequestHandler } from 'express';
 import { z } from 'zod';
 import { validate } from '../../common/middleware/validate.js';
 import { successResponse } from '../../common/types/api.js';
-import { authenticate, requireAnyRole, requirePermissions } from '../auth/auth.middleware.js';
+import { AuthenticationError, AuthorizationError } from '../../common/errors/AppError.js';
+import { authenticate, requirePermissions } from '../auth/auth.middleware.js';
 import { ORDER_STATUSES } from '../orders/orderStateMachine.js';
 import { UserModel } from '../users/user.model.js';
 import { VendorModel } from './vendor.model.js';
@@ -17,6 +18,7 @@ import { listVendorProducts, updateVendorProduct } from './vendorProductPortal.s
 import {
   getVendorStaffByUserId,
   requireOperationalVendorStaff,
+  setShopAcceptingOrders,
 } from './vendorStaffAccess.service.js';
 import {
   createVendorStaff,
@@ -26,7 +28,13 @@ import {
 
 export const vendorPortalRouter = Router();
 
-vendorPortalRouter.get('/me', authenticate, requireAnyRole('VENDOR'), async (req, res, next) => {
+const requireVendorLogin: RequestHandler = (req, _res, next) => {
+  if (!req.auth) return next(new AuthenticationError());
+  if (req.auth.roles?.includes('VENDOR')) return next();
+  next(new AuthorizationError('This account is not a vendor login'));
+};
+
+vendorPortalRouter.get('/me', authenticate, requireVendorLogin, async (req, res, next) => {
   try {
     const staff = await getVendorStaffByUserId(req.auth!.sub);
     const vendor = await VendorModel.findById(staff.vendorId).lean();
@@ -58,7 +66,7 @@ vendorPortalRouter.get('/me', authenticate, requireAnyRole('VENDOR'), async (req
 vendorPortalRouter.post(
   '/me/accepting-orders',
   authenticate,
-  requireAnyRole('VENDOR'),
+  requireVendorLogin,
   validate({ body: z.object({ acceptingOrders: z.boolean() }) }),
   async (req, res, next) => {
     try {
@@ -67,16 +75,15 @@ vendorPortalRouter.post(
         res.status(403).json({ success: false, error: { message: 'Not approved' } });
         return;
       }
-      staff.acceptingOrders = req.body.acceptingOrders;
-      await staff.save();
-      res.json(successResponse({ acceptingOrders: staff.acceptingOrders }));
+      await setShopAcceptingOrders(staff.vendorId.toString(), req.body.acceptingOrders);
+      res.json(successResponse({ acceptingOrders: req.body.acceptingOrders }));
     } catch (err) {
       next(err);
     }
   },
 );
 
-vendorPortalRouter.get('/products', authenticate, requireAnyRole('VENDOR'), async (req, res, next) => {
+vendorPortalRouter.get('/products', authenticate, requireVendorLogin, async (req, res, next) => {
   try {
     const { vendorId } = await requireOperationalVendorStaff(req.auth!.sub);
     const items = await listVendorProducts(vendorId);
@@ -89,7 +96,7 @@ vendorPortalRouter.get('/products', authenticate, requireAnyRole('VENDOR'), asyn
 vendorPortalRouter.patch(
   '/products/:id',
   authenticate,
-  requireAnyRole('VENDOR'),
+  requireVendorLogin,
   validate({
     params: z.object({ id: z.string().min(1) }),
     body: z.object({
@@ -108,18 +115,60 @@ vendorPortalRouter.patch(
   },
 );
 
-vendorPortalRouter.get('/orders', authenticate, requireAnyRole('VENDOR'), async (req, res, next) => {
-  try {
-    const { vendorId } = await requireOperationalVendorStaff(req.auth!.sub);
-    const bucket = req.query.bucket as 'new' | 'active' | 'completed' | undefined;
-    const items = await listVendorOrders(vendorId, bucket);
-    res.json(successResponse(items));
-  } catch (err) {
-    next(err);
-  }
-});
+vendorPortalRouter.get(
+  '/orders',
+  authenticate,
+  requireVendorLogin,
+  validate({
+    query: z.object({
+      bucket: z.enum(['new', 'active', 'completed']).optional(),
+      status: z.enum(ORDER_STATUSES).optional(),
+      from: z.string().datetime().optional(),
+      to: z.string().datetime().optional(),
+      page: z.coerce.number().int().min(1).optional(),
+      limit: z.coerce.number().int().min(1).max(50).optional(),
+    }),
+  }),
+  async (req, res, next) => {
+    try {
+      const { vendorId } = await requireOperationalVendorStaff(req.auth!.sub);
+      const query = req.query as {
+        bucket?: 'new' | 'active' | 'completed';
+        status?: (typeof ORDER_STATUSES)[number];
+        from?: string;
+        to?: string;
+        page?: number;
+        limit?: number;
+      };
+      const listed = await listVendorOrders(vendorId, {
+        bucket: query.bucket,
+        status: query.status,
+        from: query.from ? new Date(query.from) : undefined,
+        to: query.to ? new Date(query.to) : undefined,
+        page: query.page,
+        limit: query.limit,
+      });
+      if (query.page) {
+        const totalPages = Math.max(1, Math.ceil(listed.total / listed.limit));
+        res.json(
+          successResponse({
+            items: listed.items,
+            page: listed.page,
+            limit: listed.limit,
+            total: listed.total,
+            totalPages,
+          }),
+        );
+        return;
+      }
+      res.json(successResponse(listed.items));
+    } catch (err) {
+      next(err);
+    }
+  },
+);
 
-vendorPortalRouter.get('/orders/:id', authenticate, requireAnyRole('VENDOR'), async (req, res, next) => {
+vendorPortalRouter.get('/orders/:id', authenticate, requireVendorLogin, async (req, res, next) => {
   try {
     const { vendorId } = await requireOperationalVendorStaff(req.auth!.sub);
     const detail = await getVendorOrderDetail(vendorId, String(req.params.id));
@@ -132,10 +181,13 @@ vendorPortalRouter.get('/orders/:id', authenticate, requireAnyRole('VENDOR'), as
 vendorPortalRouter.patch(
   '/orders/:id/status',
   authenticate,
-  requireAnyRole('VENDOR'),
+  requireVendorLogin,
   validate({
     params: z.object({ id: z.string().min(1) }),
-    body: z.object({ status: z.enum(ORDER_STATUSES) }),
+    body: z.object({
+      status: z.enum(ORDER_STATUSES),
+      reason: z.string().trim().max(300).optional(),
+    }),
   }),
   async (req, res, next) => {
     try {
@@ -145,6 +197,7 @@ vendorPortalRouter.patch(
         String(req.params.id),
         req.body.status,
         req.auth!.sub,
+        req.body.reason,
       );
       res.json(successResponse(vo));
     } catch (err) {
@@ -153,7 +206,7 @@ vendorPortalRouter.patch(
   },
 );
 
-vendorPortalRouter.get('/me/earnings', authenticate, requireAnyRole('VENDOR'), async (req, res, next) => {
+vendorPortalRouter.get('/me/earnings', authenticate, requireVendorLogin, async (req, res, next) => {
   try {
     const { vendorId } = await requireOperationalVendorStaff(req.auth!.sub);
     const earnings = await getVendorEarnings(vendorId);

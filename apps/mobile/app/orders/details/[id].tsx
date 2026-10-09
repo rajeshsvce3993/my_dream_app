@@ -17,6 +17,7 @@ import { formatMoney } from '../../../lib/format';
 import { text } from '../../../lib/locale';
 import {
   type CustomerOrderDetail,
+  deliveryPartnerLine,
   groupOrderItemsByVendor,
 } from '../../../lib/orderDetailTypes';
 import { theme, spacing, radius } from '../../../lib/theme';
@@ -58,6 +59,7 @@ export default function OrderDetailsScreen() {
     queryFn: () => apiRequest<CustomerOrderDetail>(`/orders/my/${id}`),
     enabled: Boolean(id),
     retry: false,
+    refetchInterval: 5000,
   });
 
   if (detail.isError) {
@@ -83,8 +85,13 @@ export default function OrderDetailsScreen() {
   }
 
   const { order } = detail.data;
+  const partner = deliveryPartnerLine(order.status, detail.data.tracking?.assignedPartner?.name);
   const currency = order.currency === 'INR' ? '₹' : `${order.currency} `;
   const vendorGroups = groupOrderItemsByVendor(detail.data);
+  const restaurant = vendorGroups
+    .map((group) => group.vendorName)
+    .filter(Boolean)
+    .join(', ');
   const placedAt = new Date(order.createdAt).toLocaleString('en-IN', {
     day: 'numeric',
     month: 'short',
@@ -95,7 +102,12 @@ export default function OrderDetailsScreen() {
   const meta = statusMeta(order.status);
   const canTrack = !['DELIVERED', 'CANCELLED'].includes(order.status);
   const footerPad = Math.max(insets.bottom, 8) + spacing.md;
-  const deliveryFree = order.shippingTotal === 0;
+  const deliveryCharge = order.shippingTotal + (order.platformFee ?? 0);
+  const deliveryFree = deliveryCharge === 0;
+  const itemTotal = detail.data.items.reduce(
+    (sum, line) => sum + Math.max(0, line.lineTotal - line.taxAmount),
+    0,
+  );
 
   return (
     <View style={{ flex: 1, backgroundColor: theme.bg }}>
@@ -126,7 +138,15 @@ export default function OrderDetailsScreen() {
               <Ionicons name="receipt-outline" size={18} color={theme.white} />
             </View>
             <View style={{ flex: 1, minWidth: 0 }}>
-              <Text style={{ fontSize: 15, fontWeight: '800', color: theme.text, letterSpacing: -0.2 }}>
+              {restaurant ? (
+                <Text
+                  style={{ fontSize: 15, fontWeight: '800', color: theme.text, letterSpacing: -0.2 }}
+                  numberOfLines={2}
+                >
+                  {restaurant}
+                </Text>
+              ) : null}
+              <Text style={{ fontSize: 12, color: theme.muted, marginTop: restaurant ? 2 : 0 }}>
                 Order {order.orderNumber}
               </Text>
               <Text style={{ fontSize: 12, color: theme.muted, marginTop: 2 }}>{placedAt}</Text>
@@ -166,6 +186,28 @@ export default function OrderDetailsScreen() {
             <Text style={{ flex: 1, fontSize: 12, color: theme.text, lineHeight: 18 }}>
               {formatAddress(order)}
             </Text>
+          </View>
+        </View>
+
+        <SectionLabel>Delivery partner</SectionLabel>
+        <View style={styles.card}>
+          <View style={{ flexDirection: 'row', alignItems: 'center', gap: 10 }}>
+            <Ionicons name="bicycle-outline" size={16} color={theme.primary} />
+            <View style={{ flex: 1 }}>
+              {partner.name ? (
+                <Text style={{ fontWeight: '700', fontSize: 13, color: theme.text }}>{partner.name}</Text>
+              ) : null}
+              <Text
+                style={{
+                  fontSize: partner.name ? 11 : 12,
+                  color: theme.muted,
+                  marginTop: partner.name ? 1 : 0,
+                  lineHeight: 16,
+                }}
+              >
+                {partner.message}
+              </Text>
+            </View>
           </View>
         </View>
 
@@ -219,11 +261,17 @@ export default function OrderDetailsScreen() {
                       {text(line.productName, 'Product')}
                     </Text>
                     <Text style={{ color: theme.muted, fontSize: 11, marginTop: 1 }}>
-                      Qty {line.quantity} · {formatMoney(currency, line.unitPrice)}
+                      Qty {line.quantity} ·{' '}
+                      {formatMoney(
+                        currency,
+                        line.quantity > 0
+                          ? Math.max(0, line.lineTotal - (line.taxAmount ?? 0)) / line.quantity
+                          : 0,
+                      )}
                     </Text>
                   </View>
                   <Text style={{ fontWeight: '800', fontSize: 12, color: theme.text }}>
-                    {formatMoney(currency, line.lineTotal)}
+                    {formatMoney(currency, Math.max(0, line.lineTotal - (line.taxAmount ?? 0)))}
                   </Text>
                 </View>
               ))}
@@ -252,7 +300,7 @@ export default function OrderDetailsScreen() {
         {/* Bill */}
         <SectionLabel>Bill details</SectionLabel>
         <View style={styles.card}>
-          <BillRow label="Item total" value={formatMoney(currency, order.subtotal)} />
+          <BillRow label="Item total" value={formatMoney(currency, itemTotal)} />
           {order.discountTotal > 0 ? (
             <BillRow
               label="Discount"
@@ -260,14 +308,14 @@ export default function OrderDetailsScreen() {
               valueColor={theme.success}
             />
           ) : null}
-          {order.taxTotal > 0 ? (
-            <BillRow label="Taxes" value={formatMoney(currency, order.taxTotal)} />
-          ) : null}
           <BillRow
-            label="Delivery fee"
-            value={deliveryFree ? 'FREE' : formatMoney(currency, order.shippingTotal)}
+            label="Delivery charges"
+            value={deliveryFree ? 'FREE' : formatMoney(currency, deliveryCharge)}
             valueColor={deliveryFree ? theme.success : theme.text}
           />
+          {order.taxTotal > 0 ? (
+            <BillRow label="GST" value={formatMoney(currency, order.taxTotal)} />
+          ) : null}
           <View
             style={{
               height: StyleSheet.hairlineWidth,
