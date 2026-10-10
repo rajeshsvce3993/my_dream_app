@@ -11,6 +11,7 @@
     "dev:backend": "npm run dev -w @dream/backend",
     "dev:admin": "npm run dev -w @dream/admin-web",
     "dev:customer": "npm run dev -w @dream/customer-web",
+    "dev:vendor-web": "npm run dev -w @dream/vendor-web",
     "dev:mobile": "npm run start:clear -w @dream/mobile",
     "dev:delivery": "npm run start:clear -w @dream/delivery",
     "dev:vendor": "npm run start:clear -w @dream/vendor",

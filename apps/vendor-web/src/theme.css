@@ -1,0 +1,61 @@
+@import '../../../packages/design-tokens/tokens.css';
+
+:root {
+  font-family: var(--font-family);
+  /* Match apps/vendor/lib/theme.ts — Harbor Night + warm parchment */
+  --vendor-header: #0f2430;
+  --vendor-on-header: #f0f7fa;
+  --vendor-on-header-muted: #9bb8c6;
+  --vendor-accent: #3e8a9a;
+  --vendor-accent-soft: #e4f1f3;
+  --vendor-primary: #163447;
+  --vendor-primary-dark: #0f2430;
+  --vendor-bg: #fcfaf7;
+  --vendor-panel: #ffffff;
+  --vendor-panel-soft: #f7f4ef;
+  --vendor-tab: #e8e0d6;
+  --vendor-border: #ddd4c8;
+  --vendor-border-strong: #d4cabe;
+  --vendor-muted: #6b5e54;
+  --vendor-text: #1c1714;
+  --vendor-danger: #b83a3a;
+  --vendor-danger-soft: #f8e8e6;
+  --vendor-success: #2f7d5c;
+  --vendor-success-soft: #d8e8de;
+  --vendor-warning: #b8833a;
+  --vendor-warning-soft: #f5ebdd;
+  --vendor-money: #1a5563;
+  --vendor-shadow: 0 1px 2px rgba(15, 36, 48, 0.05), 0 8px 24px rgba(15, 36, 48, 0.06);
+  --vendor-radius: 14px;
+}
+
+* {
+  box-sizing: border-box;
+}
+
+body {
+  margin: 0;
+  background: var(--vendor-bg);
+  color: var(--vendor-text);
+  font-family: var(--font-family);
+  -webkit-font-smoothing: antialiased;
+}
+
+h1,
+h2,
+h3 {
+  letter-spacing: -0.02em;
+  color: var(--vendor-text);
+}
+
+a {
+  color: var(--vendor-accent);
+  text-decoration: none;
+}
+
+button,
+input,
+textarea,
+select {
+  font: inherit;
+}

@@ -26,7 +26,9 @@ const envSchema = z.object({
   JWT_REFRESH_SECRET: z.string().min(32),
   JWT_ACCESS_EXPIRES_IN: z.string().default('15m'),
   JWT_REFRESH_EXPIRES_IN: z.string().default('7d'),
-  CORS_ORIGINS: z.string().default('http://localhost:5173'),
+  CORS_ORIGINS: z.string().default(
+    'http://localhost:5173,http://localhost:5174,http://localhost:5175,http://127.0.0.1:5175',
+  ),
   STORAGE_PROVIDER: z.enum(['local']).default('local'),
   STORAGE_LOCAL_PATH: z.string().default('./uploads'),
   PAYMENT_PROVIDER: z.enum(['cod', 'razorpay', 'stripe']).default('cod'),

@@ -1,7 +1,0 @@
-@import '../../../packages/design-tokens/tokens.css';
-
-body {
-  font-family: var(--font-family);
-  background: var(--color-background-primary);
-  color: var(--color-text-primary);
-}
